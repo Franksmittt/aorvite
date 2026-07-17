@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PhotoCapture } from '../components/PhotoCapture'
 import { WORKERS } from '../data/workers'
@@ -42,6 +42,15 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
   const [pendingPhotoTaskId, setPendingPhotoTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
+
+  // Always re-read from shared store when opening a job / switching user session.
+  useEffect(() => {
+    if (!jobId) {
+      setJob(null)
+      return
+    }
+    setJob(getJob(jobId) ?? null)
+  }, [jobId, worker.id])
 
   const nextPending = useMemo(
     () =>
@@ -108,6 +117,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
   }
 
   function mediaSrc(task: { media?: { url?: string; dataUrl?: string } }) {
+    // Prefer cloud URL; fall back to local preview so all users on this device see it.
     return task.media?.url || task.media?.dataUrl || ''
   }
 

@@ -147,11 +147,16 @@ export type OrderLine = {
   allocatedRegistration?: string
 }
 
+/** vehicle = linked to a client job; workshop = manual / supplies / non-vehicle */
+export type OrderPurpose = 'vehicle' | 'workshop'
+
 export type PartsOrder = {
   id: string
   orderNumber: string
   createdAt: string
   requestedByWorkerId: string
+  /** Defaults to vehicle when a job is set; workshop for manual supplies orders */
+  purpose?: OrderPurpose
   jobId?: string
   jobRegistration?: string
   supplierId: string

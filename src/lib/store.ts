@@ -1,6 +1,6 @@
 import { MOCK_JOBS } from '../data/mockJobs'
 import { PACKAGE_TEMPLATES } from '../data/templates'
-import type { Job, JobNote, JobTask, Session } from '../types'
+import type { Job, JobNote, JobTask, Session, TaskMedia } from '../types'
 import { isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
@@ -95,6 +95,113 @@ export function loadJobs(): Job[] {
 
 export function saveJobs(jobs: Job[]) {
   localStorage.setItem(JOBS_KEY, JSON.stringify(jobs))
+}
+
+function taskStatusRank(status: JobTask['status']): number {
+  if (status === 'Complete') return 2
+  if (status === 'Skipped') return 1
+  return 0
+}
+
+function taskHasMedia(task: JobTask): boolean {
+  return Boolean(task.media?.url || task.media?.dataUrl)
+}
+
+function mergeTaskMedia(
+  local?: TaskMedia,
+  cloud?: TaskMedia,
+): TaskMedia | undefined {
+  if (!local && !cloud) return undefined
+  if (!local) return cloud
+  if (!cloud) return local
+  return {
+    id: cloud.id || local.id,
+    capturedAt: cloud.capturedAt || local.capturedAt,
+    ...(cloud.url || local.url
+      ? { url: cloud.url || local.url }
+      : {}),
+    ...(local.dataUrl || cloud.dataUrl
+      ? { dataUrl: local.dataUrl || cloud.dataUrl }
+      : {}),
+    ...(cloud.storagePath || local.storagePath
+      ? { storagePath: cloud.storagePath || local.storagePath }
+      : {}),
+  }
+}
+
+function mergeJob(local: Job, cloud: Job): Job {
+  const cloudTasks = new Map(cloud.tasks.map((t) => [t.id, t]))
+  const localTasks = new Map(local.tasks.map((t) => [t.id, t]))
+  const taskIds = new Set([...cloudTasks.keys(), ...localTasks.keys()])
+
+  const tasks: JobTask[] = [...taskIds].map((id) => {
+    const lt = localTasks.get(id)
+    const ct = cloudTasks.get(id)
+    if (!lt) return ct!
+    if (!ct) return lt
+
+    const preferCloud =
+      taskStatusRank(ct.status) > taskStatusRank(lt.status) ||
+      (taskStatusRank(ct.status) === taskStatusRank(lt.status) &&
+        Boolean(ct.completedAt) &&
+        (!lt.completedAt || ct.completedAt! >= lt.completedAt))
+
+    const base = preferCloud ? ct : lt
+    const other = preferCloud ? lt : ct
+    const media = mergeTaskMedia(lt.media, ct.media) ?? base.media
+
+    return {
+      ...other,
+      ...base,
+      media: taskHasMedia({ media } as JobTask) ? media : base.media ?? other.media,
+      completedAt: base.completedAt ?? other.completedAt,
+      completedByWorkerId: base.completedByWorkerId ?? other.completedByWorkerId,
+      skipNote: base.skipNote ?? other.skipNote,
+    }
+  })
+
+  tasks.sort((a, b) => a.stepOrder - b.stepOrder)
+
+  const notes = [...(cloud.notes ?? [])]
+  for (const note of local.notes ?? []) {
+    if (!notes.some((n) => n.id === note.id)) notes.push(note)
+  }
+  notes.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+
+  const assigned = new Set([
+    ...(cloud.assignedWorkerIds ?? []),
+    ...(local.assignedWorkerIds ?? []),
+  ])
+
+  return {
+    ...local,
+    ...cloud,
+    tasks,
+    notes,
+    assignedWorkerIds: [...assigned],
+    timerSecondsAccumulated: Math.max(
+      local.timerSecondsAccumulated ?? 0,
+      cloud.timerSecondsAccumulated ?? 0,
+    ),
+    timerStartedAt: cloud.timerStartedAt ?? local.timerStartedAt,
+    releasedAt: cloud.releasedAt ?? local.releasedAt,
+  }
+}
+
+/** Merge cloud + local so a Firestore pull never wipes photos taken on this device. */
+export function mergeJobsFromCloud(cloudJobs: Job[]): Job[] {
+  const localJobs = loadJobs()
+  const byId = new Map<string, Job>()
+
+  for (const job of localJobs) byId.set(job.id, job)
+  for (const cloudJob of cloudJobs) {
+    const local = byId.get(cloudJob.id)
+    byId.set(cloudJob.id, local ? mergeJob(local, cloudJob) : cloudJob)
+  }
+
+  return [...byId.values()].sort((a, b) =>
+    a.intakeDate < b.intakeDate ? 1 : -1,
+  )
 }
 
 export function createJob(input: {
@@ -201,13 +308,15 @@ export function completeTask(opts: {
   task.completedByWorkerId = opts.workerId
   task.skipNote = undefined
   if (opts.photoDataUrl || opts.photoUrl) {
+    // Never write `undefined` fields — Firestore rejects them and sync fails.
     task.media = {
       id: uid(),
-      // Prefer Storage URL; keep small local preview only when offline/mock
-      dataUrl: opts.photoUrl ? undefined : opts.photoDataUrl,
-      url: opts.photoUrl,
-      storagePath: opts.storagePath,
       capturedAt: new Date().toISOString(),
+      // Keep local preview so other logins on this device always see the photo,
+      // even if cloud pull is delayed. Prefer cloud URL when rendering.
+      ...(opts.photoDataUrl ? { dataUrl: opts.photoDataUrl } : {}),
+      ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
+      ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
     }
   }
 

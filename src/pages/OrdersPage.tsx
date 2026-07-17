@@ -5,6 +5,7 @@ import { PARTS_QUICKLIST } from '../data/partsCatalog'
 import { WORKERS } from '../data/workers'
 import {
   addSupplier,
+  createAndIssueManualOrder,
   createPartsOrder,
   issueOrder,
   loadOrders,
@@ -16,6 +17,7 @@ import { loadJobs } from '../lib/store'
 import {
   canIssueOrders,
   orderLineOutstanding,
+  type OrderPurpose,
   type PartsOrder,
   type PaymentMethod,
   type Worker,
@@ -58,7 +60,7 @@ export function OrdersPage({ worker }: Props) {
   const issuer = canIssueOrders(worker)
   const [orders, setOrders] = useState(() => loadOrders())
   const [suppliers, setSuppliers] = useState(() => loadSuppliers())
-  const [tab, setTab] = useState<'queue' | 'new' | 'suppliers'>(
+  const [tab, setTab] = useState<'queue' | 'new' | 'manual' | 'suppliers'>(
     issuer ? 'queue' : 'new',
   )
   const [draft, setDraft] = useState<DraftLine[]>([])
@@ -66,6 +68,7 @@ export function OrdersPage({ worker }: Props) {
   const [notes, setNotes] = useState('')
   const [customName, setCustomName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [orderPurpose, setOrderPurpose] = useState<OrderPurpose>('vehicle')
 
   const [issueFor, setIssueFor] = useState<PartsOrder | null>(null)
   const [issueSupplierId, setIssueSupplierId] = useState('sup-midas')
@@ -74,6 +77,12 @@ export function OrdersPage({ worker }: Props) {
   const [receiveFor, setReceiveFor] = useState<PartsOrder | null>(null)
   const [receiveDraft, setReceiveDraft] = useState<ReceiveDraft>({})
 
+  const [manualSupplierId, setManualSupplierId] = useState('sup-midas')
+  const [manualPayment, setManualPayment] = useState<PaymentMethod>('Account')
+  const [manualNotes, setManualNotes] = useState('')
+  const [manualDraft, setManualDraft] = useState<DraftLine[]>([])
+  const [manualCustomName, setManualCustomName] = useState('')
+
   const [newSupplierName, setNewSupplierName] = useState('')
   const [newSupplierPayment, setNewSupplierPayment] =
     useState<PaymentMethod>('Cash')
@@ -81,6 +90,10 @@ export function OrdersPage({ worker }: Props) {
   const [newSupplierNotes, setNewSupplierNotes] = useState('')
 
   const jobs = useMemo(() => loadJobs().filter((j) => j.status !== 'Gone Out'), [])
+  const cleaningItems = useMemo(
+    () => PARTS_QUICKLIST.filter((i) => i.category === 'Cleaning'),
+    [],
+  )
 
   const openOrders = orders.filter((o) => o.status === 'Open')
   const issuedOrders = orders.filter(
@@ -144,9 +157,10 @@ export function OrdersPage({ worker }: Props) {
     e.preventDefault()
     setError(null)
     try {
-      const job = selectedJob()
+      const job = orderPurpose === 'vehicle' ? selectedJob() : undefined
       createPartsOrder({
         requestedByWorkerId: worker.id,
+        purpose: orderPurpose === 'workshop' || !job ? 'workshop' : 'vehicle',
         jobId: job?.id,
         jobRegistration: job?.registration,
         notes,
@@ -161,10 +175,94 @@ export function OrdersPage({ worker }: Props) {
       setDraft([])
       setNotes('')
       setJobKey('')
+      setOrderPurpose('vehicle')
       refresh()
       setTab('queue')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create order')
+    }
+  }
+
+  function addManualCatalogItem(catalogId: string) {
+    const item = PARTS_QUICKLIST.find((c) => c.id === catalogId)
+    if (!item) return
+    setManualDraft((prev) => {
+      const existing = prev.find((line) => line.catalogId === catalogId)
+      if (existing) {
+        return prev.map((line) =>
+          line.key === existing.key ? { ...line, qty: line.qty + 1 } : line,
+        )
+      }
+      return [
+        ...prev,
+        {
+          key: crypto.randomUUID(),
+          catalogId: item.id,
+          name: item.name,
+          qty: 1,
+          unit: item.unit,
+        },
+      ]
+    })
+  }
+
+  function addManualCustom(e: FormEvent) {
+    e.preventDefault()
+    if (!manualCustomName.trim()) return
+    setManualDraft((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        name: manualCustomName.trim(),
+        qty: 1,
+        unit: 'ea',
+      },
+    ])
+    setManualCustomName('')
+  }
+
+  function onManualSupplierChange(id: string) {
+    setManualSupplierId(id)
+    const supplier = suppliers.find((s) => s.id === id)
+    if (supplier) setManualPayment(supplier.defaultPayment)
+  }
+
+  function submitManualOrder(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    try {
+      const lines = manualDraft.map((line) => ({
+        catalogId: line.catalogId,
+        name: line.name,
+        qty: line.qty,
+        unit: line.unit,
+        note: line.note,
+      }))
+
+      if (issuer) {
+        createAndIssueManualOrder({
+          requestedByWorkerId: worker.id,
+          issuedByWorkerId: worker.id,
+          supplierId: manualSupplierId,
+          paymentMethod: manualPayment,
+          notes: manualNotes || 'Manual workshop / supplies order',
+          lines,
+        })
+      } else {
+        createPartsOrder({
+          requestedByWorkerId: worker.id,
+          purpose: 'workshop',
+          notes: manualNotes || 'Manual workshop / supplies order',
+          lines,
+        })
+      }
+
+      setManualDraft([])
+      setManualNotes('')
+      refresh()
+      setTab('queue')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create manual order')
     }
   }
 
@@ -272,7 +370,7 @@ export function OrdersPage({ worker }: Props) {
         }
       />
 
-      <div className="chip-row">
+      <div className="chip-row chip-row-scroll">
         <button
           type="button"
           className={`chip ${tab === 'queue' ? 'on' : ''}`}
@@ -286,6 +384,13 @@ export function OrdersPage({ worker }: Props) {
           onClick={() => setTab('new')}
         >
           New request
+        </button>
+        <button
+          type="button"
+          className={`chip ${tab === 'manual' ? 'on' : ''}`}
+          onClick={() => setTab('manual')}
+        >
+          Manual order
         </button>
         {issuer && (
           <>
@@ -507,7 +612,169 @@ export function OrdersPage({ worker }: Props) {
         </section>
       )}
 
-      {tab === 'suppliers' && issuer ? (
+      {tab === 'manual' ? (
+        <section className="section">
+          <h2>Manual / workshop order</h2>
+          <p className="muted">
+            For supplies that are not for a client vehicle — cleaning gear,
+            shop consumables, Midas run for the workshop, etc.
+          </p>
+
+          <h3 className="subsection-title">Cleaning &amp; workshop</h3>
+          <div className="quicklist-grid">
+            {cleaningItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="quick-item"
+                onClick={() => addManualCatalogItem(item.id)}
+              >
+                <strong>{item.name}</strong>
+                <span>{item.category}</span>
+              </button>
+            ))}
+          </div>
+
+          <details className="more-list">
+            <summary>All quicklist items</summary>
+            <div className="quicklist-grid">
+              {PARTS_QUICKLIST.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="quick-item"
+                  onClick={() => addManualCatalogItem(item.id)}
+                >
+                  <strong>{item.name}</strong>
+                  <span>{item.category}</span>
+                </button>
+              ))}
+            </div>
+          </details>
+
+          <form className="note-form" onSubmit={addManualCustom}>
+            <input
+              className="inline-input"
+              placeholder="Custom item (e.g. mop heads)"
+              value={manualCustomName}
+              onChange={(e) => setManualCustomName(e.target.value)}
+            />
+            <button type="submit" className="btn btn-ghost">
+              Add custom
+            </button>
+          </form>
+
+          <form className="form group-form" onSubmit={submitManualOrder}>
+            {issuer && (
+              <>
+                <label className="field">
+                  <span>Supplier</span>
+                  <select
+                    value={manualSupplierId}
+                    onChange={(e) => onManualSupplierChange(e.target.value)}
+                  >
+                    {suppliers
+                      .filter((s) => s.active)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                          {s.hasAccount ? ' (account)' : ' (no account)'}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <div className="field">
+                  <span>Payment</span>
+                  <div className="chip-row">
+                    {PAYMENTS.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`chip ${manualPayment === p ? 'on' : ''}`}
+                        onClick={() => setManualPayment(p)}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <label className="field">
+              <span>What is this for?</span>
+              <input
+                value={manualNotes}
+                onChange={(e) => setManualNotes(e.target.value)}
+                placeholder="e.g. Bay cleaning gear / workshop stock"
+              />
+            </label>
+
+            <div className="field assign-field">
+              <span>Selected items</span>
+              {manualDraft.length === 0 ? (
+                <p className="muted">Tap items above</p>
+              ) : (
+                <ul className="draft-list">
+                  {manualDraft.map((line) => (
+                    <li key={line.key}>
+                      <div className="draft-row">
+                        <strong>{line.name}</strong>
+                        <div className="qty-controls">
+                          <button
+                            type="button"
+                            className="btn btn-ghost qty-btn"
+                            onClick={() =>
+                              setManualDraft((prev) =>
+                                prev.map((l) =>
+                                  l.key === line.key
+                                    ? { ...l, qty: Math.max(1, l.qty - 1) }
+                                    : l,
+                                ),
+                              )
+                            }
+                          >
+                            −
+                          </button>
+                          <span>{line.qty}</span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost qty-btn"
+                            onClick={() =>
+                              setManualDraft((prev) =>
+                                prev.map((l) =>
+                                  l.key === line.key ? { ...l, qty: l.qty + 1 } : l,
+                                ),
+                              )
+                            }
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost qty-btn"
+                            onClick={() =>
+                              setManualDraft((prev) =>
+                                prev.filter((l) => l.key !== line.key),
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <button type="submit" className="btn btn-primary btn-block">
+              {issuer ? 'Create & issue manual order' : 'Send manual request to Yogs'}
+            </button>
+          </form>
+        </section>
+      ) : tab === 'suppliers' && issuer ? (
         <section className="section">
           <h2>Suppliers</h2>
           <ul className="job-list group">
@@ -619,24 +886,53 @@ export function OrdersPage({ worker }: Props) {
           </form>
 
           <form className="form group-form" onSubmit={submitRequest}>
-            <label className="field">
-              <span>Client job (optional)</span>
-              <select value={jobKey} onChange={(e) => setJobKey(e.target.value)}>
-                <option value="">General workshop stock</option>
-                {jobs.map((job) => (
-                  <option key={job.id} value={job.id}>
-                    {job.registration} · {job.packageName}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="field">
+              <span>Order type</span>
+              <div className="chip-row">
+                <button
+                  type="button"
+                  className={`chip ${orderPurpose === 'vehicle' ? 'on' : ''}`}
+                  onClick={() => setOrderPurpose('vehicle')}
+                >
+                  Client vehicle
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${orderPurpose === 'workshop' ? 'on' : ''}`}
+                  onClick={() => {
+                    setOrderPurpose('workshop')
+                    setJobKey('')
+                  }}
+                >
+                  Workshop / supplies
+                </button>
+              </div>
+            </div>
+
+            {orderPurpose === 'vehicle' ? (
+              <label className="field">
+                <span>Client job (optional)</span>
+                <select value={jobKey} onChange={(e) => setJobKey(e.target.value)}>
+                  <option value="">General workshop stock</option>
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.registration} · {job.packageName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="muted purpose-hint">
+                Not tied to a client vehicle — cleaning gear, shop stock, etc.
+              </p>
+            )}
 
             <label className="field">
               <span>Note to Yogs</span>
               <input
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Urgent / which bay"
+                placeholder="Urgent / which bay / what it is for"
               />
             </label>
 
@@ -724,7 +1020,12 @@ export function OrdersPage({ worker }: Props) {
                       <div className="order-card-meta">
                         <span className="muted">
                           {workerName(order.requestedByWorkerId)}
-                          {order.jobRegistration ? ` · ${order.jobRegistration}` : ''}
+                          {order.purpose === 'workshop' ||
+                          (!order.jobRegistration && order.purpose !== 'vehicle')
+                            ? ' · Workshop / supplies'
+                            : order.jobRegistration
+                              ? ` · ${order.jobRegistration}`
+                              : ' · General stock'}
                         </span>
                         <span className="muted">
                           {order.lines.length} item{order.lines.length === 1 ? '' : 's'} ·{' '}
@@ -778,9 +1079,12 @@ export function OrdersPage({ worker }: Props) {
                           {order.supplierName} · {order.paymentMethod || 'Payment TBD'}
                         </span>
                         <span className="muted">
-                          {order.jobRegistration
-                            ? `Job ${order.jobRegistration}`
-                            : 'General stock'}
+                          {order.purpose === 'workshop' ||
+                          (!order.jobRegistration && order.purpose !== 'vehicle')
+                            ? 'Workshop / supplies'
+                            : order.jobRegistration
+                              ? `Job ${order.jobRegistration}`
+                              : 'General stock'}
                           {' · '}
                           {workerName(order.requestedByWorkerId)}
                         </span>

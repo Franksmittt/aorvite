@@ -4,6 +4,7 @@ import { DEFAULT_SUPPLIERS } from '../data/suppliers'
 import { TOOLS } from '../data/tools'
 import type {
   OrderLine,
+  OrderPurpose,
   PartsOrder,
   PartsOrderStatus,
   PaymentMethod,
@@ -135,6 +136,7 @@ function nextOrderNumber() {
 
 export function createPartsOrder(input: {
   requestedByWorkerId: string
+  purpose?: OrderPurpose
   jobId?: string
   jobRegistration?: string
   notes?: string
@@ -149,14 +151,23 @@ export function createPartsOrder(input: {
   if (input.lines.length === 0) throw new Error('Add at least one item')
 
   const midas = loadSuppliers().find((s) => s.id === 'sup-midas') ?? DEFAULT_SUPPLIERS[0]
+  const isWorkshop =
+    input.purpose === 'workshop' || (!input.jobId && input.purpose !== 'vehicle')
+  const purpose: OrderPurpose = isWorkshop ? 'workshop' : 'vehicle'
+  const jobId = purpose === 'workshop' ? undefined : input.jobId
+  const jobRegistration =
+    purpose === 'workshop'
+      ? undefined
+      : input.jobRegistration?.trim().toUpperCase() || undefined
 
   const order: PartsOrder = {
     id: uid(),
     orderNumber: nextOrderNumber(),
     createdAt: new Date().toISOString(),
     requestedByWorkerId: input.requestedByWorkerId,
-    jobId: input.jobId,
-    jobRegistration: input.jobRegistration?.trim().toUpperCase() || undefined,
+    purpose,
+    jobId,
+    jobRegistration,
     supplierId: midas.id,
     supplierName: midas.name,
     status: 'Open',
@@ -174,8 +185,8 @@ export function createPartsOrder(input: {
         unit: line.unit || catalog?.unit,
         note: line.note?.trim() || undefined,
         status: 'Requested',
-        allocatedJobId: input.jobId,
-        allocatedRegistration: input.jobRegistration?.trim().toUpperCase() || undefined,
+        allocatedJobId: jobId,
+        allocatedRegistration: jobRegistration,
       } satisfies OrderLine
     }),
   }
@@ -185,6 +196,38 @@ export function createPartsOrder(input: {
   saveOrders(orders)
   void syncOrderToCloud(order)
   return order
+}
+
+/** Create a workshop/manual supplies order and issue it immediately (Yogs). */
+export function createAndIssueManualOrder(input: {
+  requestedByWorkerId: string
+  issuedByWorkerId: string
+  supplierId: string
+  paymentMethod: PaymentMethod
+  notes?: string
+  lines: Array<{
+    catalogId?: string
+    name: string
+    qty: number
+    unit?: string
+    note?: string
+  }>
+}): PartsOrder {
+  const order = createPartsOrder({
+    requestedByWorkerId: input.requestedByWorkerId,
+    purpose: 'workshop',
+    notes: input.notes,
+    lines: input.lines,
+  })
+
+  const issued = issueOrder({
+    orderId: order.id,
+    issuedByWorkerId: input.issuedByWorkerId,
+    supplierId: input.supplierId,
+    paymentMethod: input.paymentMethod,
+  })
+  if (!issued) throw new Error('Could not issue manual order')
+  return issued
 }
 
 export function getOrder(orderId: string) {

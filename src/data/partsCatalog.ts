@@ -32,4 +32,13 @@ export const PARTS_QUICKLIST: CatalogItem[] = [
   { id: 'c-relay', name: 'Automotive relay 12V', category: 'Electrical', unit: 'ea' },
   { id: 'c-wire', name: 'Automotive wire (red/black)', category: 'Electrical', unit: 'm', popular: true },
   { id: 'c-grommet', name: 'Rubber grommets assorted', category: 'Hardware', unit: 'pack' },
+  // Workshop / cleaning supplies (manual orders — not for a client vehicle)
+  { id: 'w-floor-cleaner', name: 'Workshop floor cleaner', category: 'Cleaning', unit: 'bottle', popular: true },
+  { id: 'w-hand-cleaner', name: 'Hand cleaner / Swarfega', category: 'Cleaning', unit: 'tub', popular: true },
+  { id: 'w-rags', name: 'Cleaning rags / paper towel', category: 'Cleaning', unit: 'pack', popular: true },
+  { id: 'w-spray-cleaner', name: 'All-purpose spray cleaner', category: 'Cleaning', unit: 'bottle', popular: true },
+  { id: 'w-brush', name: 'Scrubbing brush', category: 'Cleaning', unit: 'ea' },
+  { id: 'w-bucket', name: 'Workshop bucket', category: 'Cleaning', unit: 'ea' },
+  { id: 'w-binbags', name: 'Refuse bags', category: 'Cleaning', unit: 'pack' },
+  { id: 'w-soap', name: 'Hand soap refill', category: 'Cleaning', unit: 'bottle' },
 ]

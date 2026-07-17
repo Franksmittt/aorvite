@@ -2,7 +2,9 @@
   width: min(100%, 1240px);
   margin: 0 auto;
   min-height: 100dvh;
-  padding: clamp(1rem, 2.4vw, 2rem);
+  padding: clamp(0.75rem, 2.4vw, 2rem);
+  box-sizing: border-box;
+  overflow-x: clip;
 }
 
 .screen {
@@ -588,6 +590,20 @@
   margin-top: 0.2rem;
 }
 
+.chip-row-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.15rem;
+  max-width: 100%;
+}
+
+.chip-row-scroll .chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .chip {
   min-height: 38px;
   padding: 0.5rem 0.75rem;
@@ -841,7 +857,7 @@
 
 @media (max-width: 640px) {
   .app-shell {
-    padding: 0.85rem;
+    padding: 0.7rem;
   }
 
   .screen-header.row {
@@ -854,6 +870,39 @@
 
   .action-stack {
     grid-template-columns: 1fr;
+  }
+
+  .job-card-top {
+    flex-wrap: wrap;
+  }
+
+  .draft-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .qty-controls {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .timer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .quicklist-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .panel-modal {
+    padding: 0.85rem;
+  }
+
+  .receive-card,
+  .order-card,
+  .job-card {
+    max-width: 100%;
   }
 }
 
@@ -994,7 +1043,7 @@
 
 .quicklist-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 148px), 1fr));
   gap: 0.65rem;
   margin-bottom: 0.85rem;
 }
@@ -1053,6 +1102,26 @@
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
+  min-width: 0;
+}
+
+.draft-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.subsection-title {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.purpose-hint {
+  margin: -0.25rem 0 0.5rem;
 }
 
 .order-card {
@@ -1083,6 +1152,9 @@
 .order-lines-preview li {
   display: flex;
   gap: 0.4rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .order-lines-preview li::before {
@@ -1119,6 +1191,8 @@
 .print-page {
   width: min(100%, 900px);
   margin: 0 auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .print-toolbar {
@@ -1126,15 +1200,19 @@
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .print-sheet {
-  padding: 1.5rem;
+  padding: clamp(0.85rem, 3vw, 1.5rem);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: #fff;
   color: #111;
   box-shadow: var(--shadow-sm);
+  max-width: 100%;
+  overflow-x: clip;
+  box-sizing: border-box;
 }
 
 .print-header {
@@ -1143,6 +1221,7 @@
   gap: 1rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #111;
+  min-width: 0;
 }
 
 .print-brand {
@@ -1162,10 +1241,12 @@
 .print-order-box {
   display: grid;
   gap: 0.2rem;
-  min-width: 210px;
+  min-width: 0;
+  width: min(100%, 240px);
   padding: 0.85rem;
   border: 2px solid #111;
   text-align: right;
+  box-sizing: border-box;
 }
 
 .print-order-box p {
@@ -1211,21 +1292,49 @@
   background: #f3f4f6;
 }
 
+.print-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .print-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .print-table th,
 .print-table td {
   border: 1px solid #d1d5db;
-  padding: 0.55rem 0.6rem;
+  padding: 0.55rem 0.45rem;
   text-align: left;
   font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
 }
 
 .print-table th {
   background: #f3f4f6;
+}
+
+.print-table th:nth-child(1),
+.print-table td:nth-child(1) {
+  width: 2.2rem;
+}
+
+.print-table th:nth-child(3),
+.print-table td:nth-child(3),
+.print-table th:nth-child(4),
+.print-table td:nth-child(4) {
+  width: 3.2rem;
+}
+
+.print-table th:nth-child(7),
+.print-table td:nth-child(7) {
+  width: 4.2rem;
 }
 
 .print-footer {
@@ -1263,16 +1372,52 @@
     grid-template-columns: 1fr;
     display: grid;
   }
+
+  .print-order-box {
+    width: 100%;
+    text-align: left;
+  }
+
+  .print-table {
+    table-layout: auto;
+    min-width: 0;
+  }
+
+  .print-col-secondary {
+    display: none;
+  }
+
+  .print-table th,
+  .print-table td {
+    font-size: 0.82rem;
+    padding: 0.45rem 0.35rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .quicklist-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .print-brand {
+    font-size: 1.25rem;
+  }
+
+  .print-order-box strong {
+    font-size: 1.2rem;
+  }
 }
 
 @media print {
   body {
     background: #fff !important;
+    overflow: visible !important;
   }
 
   .app-shell {
     max-width: none;
     padding: 0;
+    overflow: visible;
   }
 
   .no-print {
@@ -1284,6 +1429,19 @@
     box-shadow: none;
     border-radius: 0;
     padding: 0;
+    overflow: visible;
+  }
+
+  .print-table-wrap {
+    overflow: visible;
+  }
+
+  .print-col-secondary {
+    display: table-cell !important;
+  }
+
+  .print-table {
+    table-layout: auto;
   }
 }
 

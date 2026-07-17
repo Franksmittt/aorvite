@@ -75,7 +75,12 @@ export function OrderPrintPage() {
           </div>
           <div>
             <span>Primary job</span>
-            <strong>{order.jobRegistration || 'General workshop stock'}</strong>
+            <strong>
+              {order.purpose === 'workshop' ||
+              (!order.jobRegistration && order.purpose !== 'vehicle')
+                ? 'Workshop / supplies (manual)'
+                : order.jobRegistration || 'General workshop stock'}
+            </strong>
           </div>
         </section>
 
@@ -85,32 +90,37 @@ export function OrderPrintPage() {
           </p>
         )}
 
-        <table className="print-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Description</th>
-              <th>Qty</th>
-              <th>Unit</th>
-              <th>Allocate to</th>
-              <th>Note</th>
-              <th>Got</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.lines.map((line, idx) => (
-              <tr key={line.id}>
-                <td>{idx + 1}</td>
-                <td>{line.name}</td>
-                <td>{line.qty}</td>
-                <td>{line.unit || '—'}</td>
-                <td>{line.allocatedRegistration || 'General'}</td>
-                <td>{line.note || ''}</td>
-                <td>☐ ____</td>
+        <div className="print-table-wrap">
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Unit</th>
+                <th className="print-col-secondary">Allocate to</th>
+                <th className="print-col-secondary">Note</th>
+                <th>Got</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {order.lines.map((line, idx) => (
+                <tr key={line.id}>
+                  <td>{idx + 1}</td>
+                  <td>{line.name}</td>
+                  <td>{line.qty}</td>
+                  <td>{line.unit || '—'}</td>
+                  <td className="print-col-secondary">
+                    {line.allocatedRegistration ||
+                      (order.purpose === 'workshop' ? 'Workshop' : 'General')}
+                  </td>
+                  <td className="print-col-secondary">{line.note || ''}</td>
+                  <td>☐ ____</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <footer className="print-footer">
           <div>
