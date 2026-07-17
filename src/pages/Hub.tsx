@@ -52,8 +52,8 @@ export function Hub({ worker, onLogout, buildId, cloudPullEnabled }: Props) {
           <strong>Order</strong>
           <p>
             {canIssueOrders(worker)
-              ? 'Staff requests → issue printable Midas orders'
-              : 'Request consumables, hardware, and parts for jobs'}
+              ? 'Accept staff requests → issue → print → receive'
+              : 'Request parts (editable until Yogs accepts)'}
           </p>
         </Link>
 

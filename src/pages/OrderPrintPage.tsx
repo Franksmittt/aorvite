@@ -17,6 +17,21 @@ export function OrderPrintPage() {
     )
   }
 
+  if (order.status === 'Open' || order.status === 'Cancelled') {
+    return (
+      <div className="screen">
+        <p className="error-text">
+          {order.status === 'Open'
+            ? 'Yogs must accept & issue this order before it can be printed'
+            : 'Cancelled orders cannot be printed'}
+        </p>
+        <Link to="/orders" className="btn btn-primary">
+          Back to orders
+        </Link>
+      </div>
+    )
+  }
+
   const requestedBy =
     WORKERS.find((w) => w.id === order.requestedByWorkerId)?.fullName ?? '—'
   const issuedBy = order.issuedByWorkerId

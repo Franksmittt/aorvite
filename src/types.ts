@@ -207,6 +207,21 @@ export type OrderLine = {
 /** vehicle = linked to a client job; workshop = manual / supplies / non-vehicle */
 export type OrderPurpose = 'vehicle' | 'workshop'
 
+export type OrderHistoryAction =
+  | 'created'
+  | 'edited'
+  | 'cancelled'
+  | 'issued'
+  | 'received'
+
+export type OrderHistoryEvent = {
+  id: string
+  at: string
+  workerId: string
+  action: OrderHistoryAction
+  summary: string
+}
+
 export type PartsOrder = {
   id: string
   orderNumber: string
@@ -226,6 +241,8 @@ export type PartsOrder = {
   receivedAt?: string
   receivedByWorkerId?: string
   notes?: string
+  /** Audit trail — edits stop once issued */
+  history?: OrderHistoryEvent[]
 }
 
 export type Session = {
@@ -241,12 +258,32 @@ export function canFinalInspect(worker: Worker): boolean {
   return worker.role === 'Owner' || worker.role === 'Manager'
 }
 
+/** Only the parts desk (Yogs) issues / receives / manages suppliers */
 export function canIssueOrders(worker: Worker): boolean {
-  return worker.role === 'Orders' || worker.role === 'Owner' || worker.role === 'Manager'
+  return worker.role === 'Orders'
+}
+
+export function canReceiveOrders(worker: Worker): boolean {
+  return worker.role === 'Orders'
+}
+
+export function canManageSuppliers(worker: Worker): boolean {
+  return worker.role === 'Orders' || worker.role === 'Owner'
 }
 
 export function canAccessWorkshop(worker: Worker): boolean {
   return worker.role !== 'Orders'
+}
+
+/** Staff can edit their own request only while it is still Open (before Yogs accepts). */
+export function canEditOpenOrder(worker: Worker, order: PartsOrder): boolean {
+  if (order.status !== 'Open') return false
+  if (canIssueOrders(worker)) return true
+  return order.requestedByWorkerId === worker.id
+}
+
+export function canCancelOpenOrder(worker: Worker, order: PartsOrder): boolean {
+  return canEditOpenOrder(worker, order)
 }
 
 export function isTaskResolved(status: TaskStatus): boolean {

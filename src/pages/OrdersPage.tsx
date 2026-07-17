@@ -10,16 +10,21 @@ import {
 import { WORKERS } from '../data/workers'
 import {
   addSupplier,
+  cancelOpenOrder,
   createAndIssueManualOrder,
   createPartsOrder,
   issueOrder,
   loadOrders,
   loadSuppliers,
   receiveOrder,
+  updateOpenOrder,
 } from '../lib/inventoryStore'
 import { loadJobs } from '../lib/store'
 import {
+  canEditOpenOrder,
   canIssueOrders,
+  canManageSuppliers,
+  canReceiveOrders,
   orderLineOutstanding,
   type OrderPurpose,
   type PartsOrder,
@@ -62,6 +67,8 @@ function statusBadge(status: PartsOrder['status']) {
 
 export function OrdersPage({ worker }: Props) {
   const issuer = canIssueOrders(worker)
+  const receiver = canReceiveOrders(worker)
+  const supplierAdmin = canManageSuppliers(worker)
   const [orders, setOrders] = useState(() => loadOrders())
   const [suppliers, setSuppliers] = useState(() => loadSuppliers())
   const [tab, setTab] = useState<'queue' | 'new' | 'manual' | 'suppliers'>(
@@ -73,6 +80,7 @@ export function OrdersPage({ worker }: Props) {
   const [customName, setCustomName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [orderPurpose, setOrderPurpose] = useState<OrderPurpose>('vehicle')
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
 
   const [issueFor, setIssueFor] = useState<PartsOrder | null>(null)
   const [issueSupplierId, setIssueSupplierId] = useState('sup-midas')
@@ -118,6 +126,9 @@ export function OrdersPage({ worker }: Props) {
     (o) => o.status === 'Issued' || o.status === 'Partially Received',
   )
   const doneOrders = orders.filter((o) => o.status === 'Received')
+  const editingOrder = editingOrderId
+    ? orders.find((o) => o.id === editingOrderId)
+    : undefined
 
   function refresh() {
     setOrders(loadOrders())
@@ -176,28 +187,87 @@ export function OrdersPage({ worker }: Props) {
     setError(null)
     try {
       const job = orderPurpose === 'vehicle' ? selectedJob() : undefined
-      createPartsOrder({
-        requestedByWorkerId: worker.id,
-        purpose: orderPurpose === 'workshop' || !job ? 'workshop' : 'vehicle',
-        jobId: job?.id,
-        jobRegistration: job?.registration,
-        notes,
-        lines: draft.map((line) => ({
-          catalogId: line.catalogId,
-          name: line.name,
-          qty: line.qty,
-          unit: line.unit,
-          note: line.note,
-        })),
-      })
+      const lines = draft.map((line) => ({
+        catalogId: line.catalogId,
+        name: line.name,
+        qty: line.qty,
+        unit: line.unit,
+        note: line.note,
+      }))
+      const purpose: OrderPurpose =
+        orderPurpose === 'workshop' || !job ? 'workshop' : 'vehicle'
+
+      if (editingOrderId) {
+        updateOpenOrder({
+          orderId: editingOrderId,
+          workerId: worker.id,
+          purpose,
+          jobId: job?.id,
+          jobRegistration: job?.registration,
+          notes,
+          lines,
+        })
+      } else {
+        createPartsOrder({
+          requestedByWorkerId: worker.id,
+          purpose,
+          jobId: job?.id,
+          jobRegistration: job?.registration,
+          notes,
+          lines,
+        })
+      }
       setDraft([])
       setNotes('')
       setJobKey('')
       setOrderPurpose('vehicle')
+      setEditingOrderId(null)
       refresh()
       setTab('queue')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create order')
+    }
+  }
+
+  function startEditOrder(order: PartsOrder) {
+    if (!canEditOpenOrder(worker, order)) {
+      setError('This request is locked — Yogs already accepted it')
+      return
+    }
+    setEditingOrderId(order.id)
+    setOrderPurpose(order.purpose === 'workshop' ? 'workshop' : 'vehicle')
+    setJobKey(order.jobId ?? '')
+    setNotes(order.notes ?? '')
+    setDraft(
+      order.lines.map((line) => ({
+        key: line.id,
+        catalogId: line.catalogId,
+        name: line.name,
+        qty: line.qty,
+        unit: line.unit,
+        note: line.note,
+      })),
+    )
+    setTab('new')
+    setError(null)
+  }
+
+  function cancelEditing() {
+    setEditingOrderId(null)
+    setDraft([])
+    setNotes('')
+    setJobKey('')
+    setOrderPurpose('vehicle')
+  }
+
+  function onCancelOrder(order: PartsOrder) {
+    setError(null)
+    try {
+      cancelOpenOrder({ orderId: order.id, workerId: worker.id })
+      if (editingOrderId === order.id) cancelEditing()
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not cancel order')
     }
   }
 
@@ -362,6 +432,7 @@ export function OrdersPage({ worker }: Props) {
     setError(null)
     try {
       addSupplier({
+        workerId: worker.id,
         name: newSupplierName,
         defaultPayment: newSupplierPayment,
         hasAccount: newSupplierAccount,
@@ -383,8 +454,8 @@ export function OrdersPage({ worker }: Props) {
         title="Orders"
         subtitle={
           issuer
-            ? 'Issue → print → receive what actually came back → allocate to jobs'
-            : 'Request parts — Yogs issues to the right supplier'
+            ? 'Accept staff requests → issue → print → receive → allocate'
+            : 'Request parts — you can edit until Yogs accepts the order'
         }
       />
 
@@ -410,7 +481,7 @@ export function OrdersPage({ worker }: Props) {
         >
           Manual order
         </button>
-        {issuer && (
+        {supplierAdmin && (
           <button
             type="button"
             className={`chip ${tab === 'suppliers' ? 'on' : ''}`}
@@ -462,7 +533,7 @@ export function OrdersPage({ worker }: Props) {
           </div>
           <div className="order-actions">
             <button type="button" className="btn btn-primary" onClick={confirmIssue}>
-              Issue & ready to print
+              Accept & issue — ready to print
             </button>
             <button
               type="button"
@@ -756,7 +827,7 @@ export function OrdersPage({ worker }: Props) {
             </button>
           </form>
         </section>
-      ) : tab === 'suppliers' && issuer ? (
+      ) : tab === 'suppliers' && supplierAdmin ? (
         <section className="section">
           <h2>Suppliers</h2>
           <ul className="job-list group">
@@ -951,9 +1022,25 @@ export function OrdersPage({ worker }: Props) {
               )}
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block">
-              Send request to Yogs
-            </button>
+            <div className="order-actions">
+              <button type="submit" className="btn btn-primary btn-block">
+                {editingOrderId ? 'Save changes' : 'Send request to Yogs'}
+              </button>
+              {editingOrderId && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-block"
+                  onClick={cancelEditing}
+                >
+                  Cancel editing
+                </button>
+              )}
+            </div>
+            {editingOrderId && (
+              <p className="muted purpose-hint">
+                Editing {editingOrder?.orderNumber} — locked once Yogs accepts it.
+              </p>
+            )}
           </form>
         </section>
       ) : (
@@ -997,17 +1084,38 @@ export function OrdersPage({ worker }: Props) {
                           </li>
                         ))}
                       </ul>
-                      {issuer && (
-                        <div className="order-actions">
+                      <div className="order-actions">
+                        {canEditOpenOrder(worker, order) && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => startEditOrder(order)}
+                            >
+                              Edit request
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => onCancelOrder(order)}
+                            >
+                              Cancel request
+                            </button>
+                          </>
+                        )}
+                        {issuer && (
                           <button
                             type="button"
                             className="btn btn-primary"
                             onClick={() => openIssue(order)}
                           >
-                            Issue to supplier
+                            Accept & issue to supplier
                           </button>
-                        </div>
-                      )}
+                        )}
+                        {!issuer && !canEditOpenOrder(worker, order) && (
+                          <p className="muted">Waiting for Yogs — editing locked for you</p>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -1065,7 +1173,7 @@ export function OrdersPage({ worker }: Props) {
                         >
                           Print order
                         </Link>
-                        {issuer && (
+                        {receiver && (
                           <button
                             type="button"
                             className="btn btn-primary"
@@ -1073,6 +1181,9 @@ export function OrdersPage({ worker }: Props) {
                           >
                             Receive goods
                           </button>
+                        )}
+                        {!receiver && (
+                          <p className="muted">Issued — only Yogs can receive / change this</p>
                         )}
                       </div>
                     </div>
