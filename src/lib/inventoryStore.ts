@@ -2,7 +2,9 @@ import { stripDemoOrders } from '../data/demoData'
 import { PARTS_QUICKLIST } from '../data/partsCatalog'
 import { DEFAULT_SUPPLIERS } from '../data/suppliers'
 import { TOOLS } from '../data/tools'
+import { WORKERS } from '../data/workers'
 import type {
+  OrderHistoryAction,
   OrderLine,
   OrderPurpose,
   PartsOrder,
@@ -11,6 +13,13 @@ import type {
   Stocktake,
   StocktakeLine,
   Supplier,
+  Worker,
+} from '../types'
+import {
+  canEditOpenOrder,
+  canIssueOrders,
+  canManageSuppliers,
+  canReceiveOrders,
 } from '../types'
 import {
   syncOrderToCloud,
@@ -25,6 +34,60 @@ const ORDER_SEQ_KEY = 'aor-order-seq'
 
 function uid() {
   return crypto.randomUUID()
+}
+
+function requireWorker(workerId: string): Worker {
+  const worker = WORKERS.find((w) => w.id === workerId)
+  if (!worker) throw new Error('Unknown worker')
+  return worker
+}
+
+function pushOrderHistory(
+  order: PartsOrder,
+  workerId: string,
+  action: OrderHistoryAction,
+  summary: string,
+) {
+  order.history = [
+    {
+      id: uid(),
+      at: new Date().toISOString(),
+      workerId,
+      action,
+      summary,
+    },
+    ...(order.history ?? []),
+  ]
+}
+
+function mapLines(
+  lines: Array<{
+    catalogId?: string
+    name: string
+    qty: number
+    unit?: string
+    note?: string
+  }>,
+  jobId?: string,
+  jobRegistration?: string,
+): OrderLine[] {
+  return lines.map((line) => {
+    const catalog = line.catalogId
+      ? PARTS_QUICKLIST.find((item) => item.id === line.catalogId)
+      : undefined
+    return {
+      id: uid(),
+      catalogId: line.catalogId,
+      name: line.name.trim() || catalog?.name || 'Item',
+      qty: Math.max(1, Math.floor(line.qty)),
+      qtyReceived: 0,
+      unit: line.unit || catalog?.unit,
+      note: line.note?.trim() || undefined,
+      status: 'Requested',
+      allocatedJobId: jobId,
+      allocatedRegistration: jobRegistration,
+    } satisfies OrderLine
+  })
 }
 
 function ensureSuppliers() {
@@ -52,11 +115,16 @@ export function saveSuppliers(suppliers: Supplier[]) {
 }
 
 export function addSupplier(input: {
+  workerId: string
   name: string
   defaultPayment: PaymentMethod
   hasAccount: boolean
   notes?: string
 }): Supplier {
+  const worker = requireWorker(input.workerId)
+  if (!canManageSuppliers(worker)) {
+    throw new Error('Only Yogs / parts desk can manage suppliers')
+  }
   const name = input.name.trim()
   if (!name) throw new Error('Supplier name required')
   const supplier: Supplier = {
@@ -105,6 +173,7 @@ function normalizeOrder(order: PartsOrder): PartsOrder {
     supplierId: order.supplierId || 'sup-midas',
     supplierName: order.supplierName || 'Midas',
     status,
+    history: order.history ?? [],
     lines: order.lines.map((line) => {
       const legacyLine = line.status as string
       let lineStatus = line.status
@@ -143,6 +212,7 @@ export function createPartsOrder(input: {
     note?: string
   }>
 }): PartsOrder {
+  requireWorker(input.requestedByWorkerId)
   if (input.lines.length === 0) throw new Error('Add at least one item')
 
   const midas = loadSuppliers().find((s) => s.id === 'sup-midas') ?? DEFAULT_SUPPLIERS[0]
@@ -167,24 +237,15 @@ export function createPartsOrder(input: {
     supplierName: midas.name,
     status: 'Open',
     notes: input.notes?.trim() || undefined,
-    lines: input.lines.map((line) => {
-      const catalog = line.catalogId
-        ? PARTS_QUICKLIST.find((item) => item.id === line.catalogId)
-        : undefined
-      return {
-        id: uid(),
-        catalogId: line.catalogId,
-        name: line.name.trim() || catalog?.name || 'Item',
-        qty: Math.max(1, line.qty),
-        qtyReceived: 0,
-        unit: line.unit || catalog?.unit,
-        note: line.note?.trim() || undefined,
-        status: 'Requested',
-        allocatedJobId: jobId,
-        allocatedRegistration: jobRegistration,
-      } satisfies OrderLine
-    }),
+    lines: mapLines(input.lines, jobId, jobRegistration),
+    history: [],
   }
+  pushOrderHistory(
+    order,
+    input.requestedByWorkerId,
+    'created',
+    `Request created (${order.lines.length} item${order.lines.length === 1 ? '' : 's'})`,
+  )
 
   const orders = loadOrders()
   orders.unshift(order)
@@ -193,7 +254,7 @@ export function createPartsOrder(input: {
   return order
 }
 
-/** Create a workshop/manual supplies order and issue it immediately (Yogs). */
+/** Create a workshop/manual supplies order and issue it immediately (Yogs only). */
 export function createAndIssueManualOrder(input: {
   requestedByWorkerId: string
   issuedByWorkerId: string
@@ -208,6 +269,11 @@ export function createAndIssueManualOrder(input: {
     note?: string
   }>
 }): PartsOrder {
+  const issuer = requireWorker(input.issuedByWorkerId)
+  if (!canIssueOrders(issuer)) {
+    throw new Error('Only Yogs can issue orders to suppliers')
+  }
+
   const order = createPartsOrder({
     requestedByWorkerId: input.requestedByWorkerId,
     purpose: 'workshop',
@@ -238,15 +304,95 @@ export function updateOrder(order: PartsOrder) {
   void syncOrderToCloud(order)
 }
 
+/** Staff (requester) or Yogs can change an Open request. Locked once issued. */
+export function updateOpenOrder(opts: {
+  orderId: string
+  workerId: string
+  purpose?: OrderPurpose
+  jobId?: string
+  jobRegistration?: string
+  notes?: string
+  lines: Array<{
+    catalogId?: string
+    name: string
+    qty: number
+    unit?: string
+    note?: string
+  }>
+}): PartsOrder {
+  const worker = requireWorker(opts.workerId)
+  const order = getOrder(opts.orderId)
+  if (!order) throw new Error('Order not found')
+  if (!canEditOpenOrder(worker, order)) {
+    throw new Error(
+      order.status === 'Open'
+        ? 'You can only edit your own open requests'
+        : 'Order already accepted by Yogs — editing locked',
+    )
+  }
+  if (opts.lines.length === 0) throw new Error('Add at least one item')
+
+  const isWorkshop =
+    opts.purpose === 'workshop' || (!opts.jobId && opts.purpose !== 'vehicle')
+  const purpose: OrderPurpose = isWorkshop ? 'workshop' : (opts.purpose ?? order.purpose ?? 'vehicle')
+  const jobId = purpose === 'workshop' ? undefined : opts.jobId
+  const jobRegistration =
+    purpose === 'workshop'
+      ? undefined
+      : opts.jobRegistration?.trim().toUpperCase() || undefined
+
+  order.purpose = purpose
+  order.jobId = jobId
+  order.jobRegistration = jobRegistration
+  order.notes = opts.notes?.trim() || undefined
+  order.lines = mapLines(opts.lines, jobId, jobRegistration)
+  pushOrderHistory(
+    order,
+    opts.workerId,
+    'edited',
+    `Request edited (${order.lines.length} item${order.lines.length === 1 ? '' : 's'})`,
+  )
+  updateOrder(order)
+  return order
+}
+
+export function cancelOpenOrder(opts: {
+  orderId: string
+  workerId: string
+}): PartsOrder {
+  const worker = requireWorker(opts.workerId)
+  const order = getOrder(opts.orderId)
+  if (!order) throw new Error('Order not found')
+  if (!canEditOpenOrder(worker, order)) {
+    throw new Error(
+      order.status === 'Open'
+        ? 'You can only cancel your own open requests'
+        : 'Order already accepted — cannot cancel',
+    )
+  }
+
+  order.status = 'Cancelled'
+  order.lines = order.lines.map((line) => ({ ...line, status: 'Cancelled' }))
+  pushOrderHistory(order, opts.workerId, 'cancelled', 'Request cancelled before issue')
+  updateOrder(order)
+  return order
+}
+
 export function issueOrder(opts: {
   orderId: string
   issuedByWorkerId: string
   supplierId: string
   paymentMethod: PaymentMethod
 }): PartsOrder | null {
+  const issuer = requireWorker(opts.issuedByWorkerId)
+  if (!canIssueOrders(issuer)) {
+    throw new Error('Only Yogs can issue orders to suppliers')
+  }
+
   const order = getOrder(opts.orderId)
   if (!order) return null
   if (order.status !== 'Open') throw new Error('Order already issued')
+  if (order.lines.length === 0) throw new Error('Order has no items')
 
   const supplier = loadSuppliers().find((s) => s.id === opts.supplierId)
   if (!supplier) throw new Error('Supplier not found')
@@ -263,6 +409,12 @@ export function issueOrder(opts: {
   order.issuedAt = new Date().toISOString()
   order.lines = order.lines.map((line) =>
     line.status === 'Requested' ? { ...line, status: 'On Order' } : line,
+  )
+  pushOrderHistory(
+    order,
+    opts.issuedByWorkerId,
+    'issued',
+    `Accepted & issued to ${supplier.name} (${opts.paymentMethod})`,
   )
   updateOrder(order)
   return order
@@ -299,9 +451,16 @@ export function receiveOrder(opts: {
     note?: string
   }>
 }): PartsOrder | null {
+  const receiver = requireWorker(opts.receivedByWorkerId)
+  if (!canReceiveOrders(receiver)) {
+    throw new Error('Only Yogs can receive supplier orders')
+  }
+
   const order = getOrder(opts.orderId)
   if (!order) return null
   if (order.status === 'Open') throw new Error('Issue the order before receiving')
+  if (order.status === 'Cancelled') throw new Error('Order was cancelled')
+  if (order.status === 'Received') throw new Error('Order already fully received')
 
   order.lines = order.lines.map((line) => {
     const update = opts.lines.find((l) => l.lineId === line.id)
@@ -325,6 +484,12 @@ export function receiveOrder(opts: {
   order.status = deriveOrderStatus(order.lines)
   order.receivedAt = new Date().toISOString()
   order.receivedByWorkerId = opts.receivedByWorkerId
+  pushOrderHistory(
+    order,
+    opts.receivedByWorkerId,
+    'received',
+    `Goods receipt saved (${order.status})`,
+  )
   updateOrder(order)
   return order
 }

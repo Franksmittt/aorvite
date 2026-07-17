@@ -1,6 +1,7 @@
 import { stripDemoJobs } from '../data/demoData'
 import { PACKAGE_TEMPLATES } from '../data/templates'
 import { WALKAROUND_MIN_PHOTOS, walkaroundSlotLabel } from '../data/walkaround'
+import { WORKERS } from '../data/workers'
 import type {
   AuditAction,
   AuditEvent,
@@ -12,7 +13,7 @@ import type {
   TaskPhoto,
   WalkaroundSlotId,
 } from '../types'
-import { isTaskResolved } from '../types'
+import { canFinalInspect, isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
 
@@ -403,6 +404,16 @@ export function completeTask(opts: {
   const task = job.tasks.find((t) => t.id === opts.taskId)
   if (!task) return null
 
+  if (isTaskResolved(task.status)) {
+    throw new Error('Task already completed — locked')
+  }
+
+  const worker = WORKERS.find((w) => w.id === opts.workerId)
+  if (!worker) throw new Error('Unknown worker')
+  if (task.phase === 'Final Inspection' && !canFinalInspect(worker)) {
+    throw new Error('Only owner / manager can complete final inspection')
+  }
+
   if (task.photoMode === 'walkaround') {
     throw new Error('Use walkaround submit for this step')
   }
@@ -572,8 +583,8 @@ export function submitWalkaround(opts: {
   if (task.photoMode !== 'walkaround') {
     throw new Error('Not a walkaround step')
   }
-  if (task.status === 'Complete') {
-    throw new Error('Already submitted')
+  if (task.status === 'Complete' || task.photosLockedAt) {
+    throw new Error('Walkaround already submitted — locked')
   }
 
   const min = task.minPhotos ?? WALKAROUND_MIN_PHOTOS
@@ -631,6 +642,16 @@ export function skipTask(opts: {
 
   const task = job.tasks.find((t) => t.id === opts.taskId)
   if (!task) return null
+
+  if (isTaskResolved(task.status)) {
+    throw new Error('Task already completed — locked')
+  }
+
+  const worker = WORKERS.find((w) => w.id === opts.workerId)
+  if (!worker) throw new Error('Unknown worker')
+  if (task.phase === 'Final Inspection' && !canFinalInspect(worker)) {
+    throw new Error('Only owner / manager can skip final inspection steps')
+  }
 
   if (!task.skippable) {
     throw new Error('This step cannot be skipped')
