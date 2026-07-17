@@ -59,9 +59,7 @@ export function OrderPrintPage() {
                 {line}
               </p>
             ))}
-            <p className="print-meta">
-              {COMPANY.phone} · {COMPANY.email}
-            </p>
+            <p className="print-meta">{COMPANY.phones}</p>
             <p className="print-meta">{COMPANY.vat}</p>
           </div>
           <div className="print-order-box">
@@ -153,7 +151,7 @@ export function OrderPrintPage() {
         </footer>
 
         <p className="print-fine">
-          Issued by Absolute Offroad for collection at {order.supplierName}. Payment:{' '}
+          Issued by {COMPANY.name} for collection at {order.supplierName}. Payment:{' '}
           {order.paymentMethod || 'TBD'}. Mark what was received on return — Yogs captures
           shortages in the app.
         </p>
