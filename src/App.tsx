@@ -7,6 +7,7 @@ import {
 } from './lib/firestoreSync'
 import { isFirebaseConfigured } from './lib/firebase'
 import { APP_GENERATION, ensureAppGeneration } from './lib/appGeneration'
+import { reconcileOrdersWithCloud } from './lib/inventoryStore'
 import {
   loadJobs,
   loadSession,
@@ -35,8 +36,11 @@ import './App.css'
  * Cloud pull was rehydrating old demo jobs from Firestore.
  * Keep uploads/sync for NEW work, but do not pull the full jobs list until
  * the workshop has a clean slate for real testing.
+ *
+ * Orders MUST pull — Yogs on another phone needs Jaco’s requests.
  */
 const CLOUD_JOB_PULL_ENABLED = false
+const CLOUD_ORDER_PULL_ENABLED = true
 
 // Drop every old aor-* local key when generation bumps (runs before first paint).
 ensureAppGeneration()
@@ -75,6 +79,14 @@ function AppRoutes() {
         console.warn('Demo purge failed', err)
       }
       await pullJobsFromCloud()
+      if (CLOUD_ORDER_PULL_ENABLED) {
+        try {
+          await reconcileOrdersWithCloud()
+          console.info('Orders reconciled with Firestore')
+        } catch (err) {
+          console.warn('Firestore orders sync failed — using local cache', err)
+        }
+      }
     })()
   }, [pullJobsFromCloud])
 

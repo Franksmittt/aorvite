@@ -22,10 +22,20 @@ import {
   canReceiveOrders,
 } from '../types'
 import {
+  fetchOrdersFromCloud,
+  subscribeOrdersFromCloud,
   syncOrderToCloud,
   syncStocktakeToCloud,
   syncSupplierToCloud,
 } from './firestoreSync'
+import { isFirebaseConfigured } from './firebase'
+
+export const ORDERS_CHANGED_EVENT = 'aor-orders-changed'
+
+function emitOrdersChanged() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(ORDERS_CHANGED_EVENT))
+}
 
 const ORDERS_KEY = 'aor-orders-v4'
 const SUPPLIERS_KEY = 'aor-suppliers-v1'
@@ -189,6 +199,89 @@ function normalizeOrder(order: PartsOrder): PartsOrder {
 
 export function saveOrders(orders: PartsOrder[]) {
   localStorage.setItem(ORDERS_KEY, JSON.stringify(orders))
+  bumpOrderSeqFromOrders(orders)
+  emitOrdersChanged()
+}
+
+function orderActivityAt(order: PartsOrder): string {
+  return (
+    order.history?.[0]?.at ||
+    order.receivedAt ||
+    order.issuedAt ||
+    order.createdAt ||
+    ''
+  )
+}
+
+function bumpOrderSeqFromOrders(orders: PartsOrder[]) {
+  let max = Number(localStorage.getItem(ORDER_SEQ_KEY) || '1004')
+  for (const order of orders) {
+    const match = /^AOR-(\d+)$/i.exec(order.orderNumber || '')
+    if (!match) continue
+    max = Math.max(max, Number(match[1]))
+  }
+  localStorage.setItem(ORDER_SEQ_KEY, String(max))
+}
+
+/** Merge cloud + local by id; keep the more recently updated copy. */
+export function mergeOrdersFromCloud(cloudOrders: PartsOrder[]): PartsOrder[] {
+  const byId = new Map<string, PartsOrder>()
+
+  for (const local of loadOrders()) {
+    byId.set(local.id, normalizeOrder(local))
+  }
+
+  for (const cloud of cloudOrders) {
+    const normalized = normalizeOrder(cloud)
+    const existing = byId.get(normalized.id)
+    if (!existing) {
+      byId.set(normalized.id, normalized)
+      continue
+    }
+    const preferCloud = orderActivityAt(normalized) >= orderActivityAt(existing)
+    byId.set(normalized.id, preferCloud ? normalized : existing)
+  }
+
+  return stripDemoOrders([...byId.values()]).sort((a, b) =>
+    a.createdAt < b.createdAt ? 1 : -1,
+  )
+}
+
+/**
+ * Pull Firestore orders onto this device, merge with local, and re-upload any
+ * local-only orders so other phones (Yogs) can see them.
+ */
+export async function reconcileOrdersWithCloud(): Promise<PartsOrder[]> {
+  if (!isFirebaseConfigured()) return loadOrders()
+
+  const cloudOrders = (await fetchOrdersFromCloud()) ?? []
+  const localBefore = loadOrders()
+  const merged = mergeOrdersFromCloud(cloudOrders)
+  saveOrders(merged)
+
+  const cloudIds = new Set(cloudOrders.map((o) => o.id))
+  const missingOnCloud = localBefore.filter((o) => !cloudIds.has(o.id))
+  for (const order of missingOnCloud) {
+    try {
+      await syncOrderToCloud(order)
+    } catch (err) {
+      console.error('Could not upload local order to cloud', order.orderNumber, err)
+    }
+  }
+
+  return loadOrders()
+}
+
+export function listenForCloudOrders(
+  onChange: (orders: PartsOrder[]) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  if (!isFirebaseConfigured()) return () => {}
+  return subscribeOrdersFromCloud((cloudOrders) => {
+    const merged = mergeOrdersFromCloud(cloudOrders)
+    saveOrders(merged)
+    onChange(merged)
+  }, onError)
 }
 
 function nextOrderNumber() {
@@ -250,7 +343,9 @@ export function createPartsOrder(input: {
   const orders = loadOrders()
   orders.unshift(order)
   saveOrders(orders)
-  void syncOrderToCloud(order)
+  void syncOrderToCloud(order).catch((err) => {
+    console.error('Order saved on this device only — cloud sync failed', err)
+  })
   return order
 }
 
@@ -301,7 +396,9 @@ export function updateOrder(order: PartsOrder) {
   if (idx === -1) return
   orders[idx] = order
   saveOrders(orders)
-  void syncOrderToCloud(order)
+  void syncOrderToCloud(order).catch((err) => {
+    console.error('Order update cloud sync failed', order.orderNumber, err)
+  })
 }
 
 /** Staff (requester) or Yogs can change an Open request. Locked once issued. */
