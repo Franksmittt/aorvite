@@ -1,44 +1,88 @@
+export type CatalogCategory =
+  | 'Tape'
+  | 'Electrical'
+  | 'Chemicals'
+  | 'Abrasives'
+  | 'Hardware'
+  | 'Cleaning'
+
 export type CatalogItem = {
   id: string
   name: string
-  category: string
+  category: CatalogCategory
   unit: string
+  /** Show on the default “Midas run” list */
   popular?: boolean
+  sortOrder?: number
 }
 
-/** Quicklist — common workshop consumables & hardware for Midas runs */
+/**
+ * Midas quicklist — organised the way the workshop actually buys.
+ * Categories = filter chips on the Orders screen.
+ */
 export const PARTS_QUICKLIST: CatalogItem[] = [
-  { id: 'c-masking', name: 'Masking tape (48mm)', category: 'Consumables', unit: 'roll', popular: true },
-  { id: 'c-sikaflex', name: 'Sikaflex / polyurethane sealant', category: 'Consumables', unit: 'tube', popular: true },
-  { id: 'c-silicone', name: 'Silicone sealant (black)', category: 'Consumables', unit: 'tube', popular: true },
-  { id: 'c-glue', name: 'Panel bond / adhesive', category: 'Consumables', unit: 'tube', popular: true },
-  { id: 'c-cable-ties', name: 'Cable ties assorted', category: 'Electrical', unit: 'pack', popular: true },
-  { id: 'c-heatshrink', name: 'Heat shrink tubing assorted', category: 'Electrical', unit: 'pack', popular: true },
-  { id: 'c-connectors', name: 'Bullet / spade connectors', category: 'Electrical', unit: 'pack', popular: true },
-  { id: 'c-loom-tape', name: 'Wiring loom tape', category: 'Electrical', unit: 'roll', popular: true },
-  { id: 'c-m6', name: 'M6 bolts + nylocks + washers', category: 'Hardware', unit: 'set', popular: true },
-  { id: 'c-m8', name: 'M8 bolts + nylocks + washers', category: 'Hardware', unit: 'set', popular: true },
-  { id: 'c-m10', name: 'M10 bolts + nylocks + washers', category: 'Hardware', unit: 'set', popular: true },
-  { id: 'c-m12', name: 'M12 bolts + nylocks + washers', category: 'Hardware', unit: 'set', popular: true },
-  { id: 'c-clips-plastic', name: 'Plastic trim clips assorted', category: 'Hardware', unit: 'pack', popular: true },
-  { id: 'c-rivets', name: 'Blind rivets assorted', category: 'Hardware', unit: 'pack' },
-  { id: 'c-brackets', name: 'Angle brackets / mounting brackets', category: 'Hardware', unit: 'ea' },
-  { id: 'c-rust', name: 'Rust-proofing paint / zinc spray', category: 'Consumables', unit: 'can', popular: true },
-  { id: 'c-degreaser', name: 'Brake cleaner / degreaser', category: 'Consumables', unit: 'can', popular: true },
-  { id: 'c-gloves', name: 'Nitrile gloves', category: 'Consumables', unit: 'box' },
-  { id: 'c-discs', name: 'Cutting / grinding discs 115mm', category: 'Consumables', unit: 'pack', popular: true },
-  { id: 'c-sand', name: 'Sanding discs / paper', category: 'Consumables', unit: 'pack' },
-  { id: 'c-fuse', name: 'Blade fuses assorted', category: 'Electrical', unit: 'pack' },
-  { id: 'c-relay', name: 'Automotive relay 12V', category: 'Electrical', unit: 'ea' },
-  { id: 'c-wire', name: 'Automotive wire (red/black)', category: 'Electrical', unit: 'm', popular: true },
-  { id: 'c-grommet', name: 'Rubber grommets assorted', category: 'Hardware', unit: 'pack' },
-  // Workshop / cleaning supplies (manual orders — not for a client vehicle)
-  { id: 'w-floor-cleaner', name: 'Workshop floor cleaner', category: 'Cleaning', unit: 'bottle', popular: true },
-  { id: 'w-hand-cleaner', name: 'Hand cleaner / Swarfega', category: 'Cleaning', unit: 'tub', popular: true },
-  { id: 'w-rags', name: 'Cleaning rags / paper towel', category: 'Cleaning', unit: 'pack', popular: true },
-  { id: 'w-spray-cleaner', name: 'All-purpose spray cleaner', category: 'Cleaning', unit: 'bottle', popular: true },
-  { id: 'w-brush', name: 'Scrubbing brush', category: 'Cleaning', unit: 'ea' },
-  { id: 'w-bucket', name: 'Workshop bucket', category: 'Cleaning', unit: 'ea' },
-  { id: 'w-binbags', name: 'Refuse bags', category: 'Cleaning', unit: 'pack' },
-  { id: 'w-soap', name: 'Hand soap refill', category: 'Cleaning', unit: 'bottle' },
+  // Tape
+  { id: 'm-masking', name: 'Masking tape', category: 'Tape', unit: 'roll', popular: true, sortOrder: 10 },
+  { id: 'm-insulation', name: 'Insulation tape', category: 'Tape', unit: 'roll', popular: true, sortOrder: 20 },
+  { id: 'm-double-sided', name: 'Double sided tape', category: 'Tape', unit: 'roll', popular: true, sortOrder: 30 },
+
+  // Electrical
+  { id: 'm-lugs', name: 'Lugs', category: 'Electrical', unit: 'pack', popular: true, sortOrder: 40 },
+  { id: 'm-heatshrink', name: 'Heatshrink', category: 'Electrical', unit: 'pack', popular: true, sortOrder: 50 },
+  { id: 'm-cable-ties', name: 'Cable ties', category: 'Electrical', unit: 'pack', popular: true, sortOrder: 60 },
+  { id: 'm-cable', name: 'Cable', category: 'Electrical', unit: 'm', popular: true, sortOrder: 70 },
+  { id: 'm-wire', name: 'Wire', category: 'Electrical', unit: 'm', popular: true, sortOrder: 80 },
+
+  // Chemicals / adhesives / sprays
+  { id: 'm-qbond', name: 'Qbond', category: 'Chemicals', unit: 'tube', popular: true, sortOrder: 90 },
+  { id: 'm-sikaflex', name: 'Sika Flex', category: 'Chemicals', unit: 'tube', popular: true, sortOrder: 100 },
+  { id: 'm-grease', name: 'Grease', category: 'Chemicals', unit: 'tub', popular: true, sortOrder: 110 },
+  { id: 'm-anti-spat', name: 'Anti Spat', category: 'Chemicals', unit: 'can', popular: true, sortOrder: 120 },
+  { id: 'm-q20', name: 'Q20', category: 'Chemicals', unit: 'can', popular: true, sortOrder: 130 },
+  { id: 'm-spray-paint', name: 'Spray paint', category: 'Chemicals', unit: 'can', popular: true, sortOrder: 140 },
+
+  // Abrasives
+  { id: 'm-sanding', name: 'Sanding paper', category: 'Abrasives', unit: 'pack', popular: true, sortOrder: 150 },
+  { id: 'm-flapper', name: 'Flapper disks', category: 'Abrasives', unit: 'pack', popular: true, sortOrder: 160 },
+  { id: 'm-cutting', name: 'Cutting disks', category: 'Abrasives', unit: 'pack', popular: true, sortOrder: 170 },
+
+  // Hardware
+  { id: 'm-pop-rivets', name: 'Pop rivets', category: 'Hardware', unit: 'pack', popular: true, sortOrder: 180 },
+
+  // Workshop cleaning (manual / shop orders)
+  { id: 'w-floor-cleaner', name: 'Workshop floor cleaner', category: 'Cleaning', unit: 'bottle', sortOrder: 200 },
+  { id: 'w-hand-cleaner', name: 'Hand cleaner / Swarfega', category: 'Cleaning', unit: 'tub', sortOrder: 210 },
+  { id: 'w-rags', name: 'Cleaning rags / paper towel', category: 'Cleaning', unit: 'pack', sortOrder: 220 },
+  { id: 'w-spray-cleaner', name: 'All-purpose spray cleaner', category: 'Cleaning', unit: 'bottle', sortOrder: 230 },
+  { id: 'w-brush', name: 'Scrubbing brush', category: 'Cleaning', unit: 'ea', sortOrder: 240 },
+  { id: 'w-binbags', name: 'Refuse bags', category: 'Cleaning', unit: 'pack', sortOrder: 250 },
 ]
+
+/** Category order for filter chips */
+export const CATALOG_CATEGORIES: CatalogCategory[] = [
+  'Tape',
+  'Electrical',
+  'Chemicals',
+  'Abrasives',
+  'Hardware',
+  'Cleaning',
+]
+
+export const MIDAS_RUN_CATEGORIES: CatalogCategory[] = [
+  'Tape',
+  'Electrical',
+  'Chemicals',
+  'Abrasives',
+  'Hardware',
+]
+
+export function catalogByCategory(
+  categories?: CatalogCategory[],
+  opts?: { popularOnly?: boolean },
+): CatalogItem[] {
+  return PARTS_QUICKLIST.filter((item) => {
+    if (categories && !categories.includes(item.category)) return false
+    if (opts?.popularOnly && !item.popular) return false
+    return true
+  }).sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+}
