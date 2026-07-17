@@ -1,35 +1,37 @@
 :root {
-  --bg: #070b12;
-  --bg-soft: #0b111c;
-  --panel: #111827;
-  --panel-2: #151f31;
-  --panel-3: #1b2638;
-  --surface: rgba(17, 24, 39, 0.88);
-  --surface-strong: #172033;
-  --field: #0d1524;
-  --text: #f8fafc;
-  --text-soft: #d7dee9;
-  --muted: #8b97aa;
-  --muted-2: #64748b;
-  --accent: #38bdf8;
-  --accent-strong: #0ea5e9;
-  --accent-soft: rgba(56, 189, 248, 0.14);
-  --ok: #22c55e;
-  --ok-soft: rgba(34, 197, 94, 0.14);
-  --warn: #f59e0b;
-  --warn-soft: rgba(245, 158, 11, 0.16);
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.14);
-  --skip: #94a3b8;
-  --border: rgba(148, 163, 184, 0.17);
-  --border-strong: rgba(148, 163, 184, 0.28);
-  --shadow: 0 18px 60px rgba(0, 0, 0, 0.32);
-  --shadow-sm: 0 10px 30px rgba(0, 0, 0, 0.22);
+  /* Shark grey · black · white */
+  --bg: #0a0c0e;
+  --bg-soft: #111418;
+  --panel: #161a1f;
+  --panel-2: #1c2128;
+  --panel-3: #262c34;
+  --surface: rgba(22, 26, 31, 0.94);
+  --surface-strong: #1a1f25;
+  --field: #0e1114;
+  --text: #f2f3f4;
+  --text-soft: #d4d7db;
+  --muted: #8b9199;
+  --muted-2: #6b727a;
+  --accent: #e8eaed;
+  --accent-strong: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --accent-border: rgba(255, 255, 255, 0.22);
+  --ok: #b8c0c8;
+  --ok-soft: rgba(255, 255, 255, 0.08);
+  --warn: #c4c8ce;
+  --warn-soft: rgba(255, 255, 255, 0.1);
+  --danger: #e8e8e8;
+  --danger-soft: rgba(255, 255, 255, 0.06);
+  --skip: #8b9199;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.35);
   --touch: 48px;
-  --radius: 12px;
-  --radius-lg: 18px;
-  --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: 'Barlow', 'Segoe UI', sans-serif;
+  --font-display: 'Barlow Condensed', 'Barlow', 'Segoe UI', sans-serif;
 }
 
 *,
@@ -53,10 +55,10 @@ body {
 
 body {
   font-family: var(--font);
+  font-weight: 500;
   background:
-    radial-gradient(circle at 18% -10%, rgba(56, 189, 248, 0.16), transparent 34rem),
-    radial-gradient(circle at 92% 4%, rgba(34, 197, 94, 0.08), transparent 26rem),
-    linear-gradient(180deg, #09111f 0%, var(--bg) 45%, #060912 100%);
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 255, 255, 0.04), transparent 55%),
+    linear-gradient(180deg, #101317 0%, var(--bg) 42%, #070809 100%);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -81,7 +83,8 @@ a {
 }
 
 ::selection {
-  background: rgba(56, 189, 248, 0.32);
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 
 .sr-only {
