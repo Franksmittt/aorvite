@@ -22,8 +22,8 @@ export function Hub({ worker, onLogout, buildId, cloudPullEnabled }: Props) {
     <div className="screen screen-stack hub-screen">
       <header className="screen-header row">
         <div>
-          <p className="brand">Absolute Offroad</p>
-          <h1>Control</h1>
+          <p className="brand brand-hero">Absolute Offroad</p>
+          <h1 className="title-secondary">Control</h1>
           <p className="sub">
             {worker.fullName} · {ROLE_LABELS[worker.role]}
           </p>

@@ -44,8 +44,8 @@ export function Login({ onLoggedIn, buildId }: Props) {
     return (
       <div className="screen screen-stack">
         <header className="screen-header">
-          <p className="brand">Absolute Offroad</p>
-          <h1>Sign in</h1>
+          <p className="brand brand-hero">Absolute Offroad</p>
+          <h1 className="title-secondary">Sign in</h1>
           <p className="sub">Choose your name to continue</p>
           <p className="build-stamp">
             Clean build {buildId ?? '—'} · open{' '}
