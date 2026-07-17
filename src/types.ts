@@ -15,6 +15,18 @@ export type Worker = {
   pin: string
 }
 
+export type PhotoMode = 'single' | 'walkaround'
+
+export type WalkaroundSlotId =
+  | 'front'
+  | 'front-right'
+  | 'right'
+  | 'back-right'
+  | 'back'
+  | 'back-left'
+  | 'left'
+  | 'front-left'
+
 export type TaskTemplateStep = {
   id: string
   taskName: string
@@ -22,6 +34,9 @@ export type TaskTemplateStep = {
   skippable: boolean
   phase?: TaskPhase
   stepOrder: number
+  /** Pre-inspection etc. — multi-angle capture */
+  photoMode?: PhotoMode
+  minPhotos?: number
 }
 
 export type PackageTemplate = {
@@ -40,6 +55,18 @@ export type TaskMedia = {
   capturedAt: string
 }
 
+/** One photo in a multi-photo / walkaround set */
+export type TaskPhoto = {
+  id: string
+  slotId?: WalkaroundSlotId
+  slotLabel: string
+  dataUrl?: string
+  url?: string
+  storagePath?: string
+  capturedAt: string
+  capturedByWorkerId: string
+}
+
 export type JobTask = {
   id: string
   taskName: string
@@ -51,7 +78,14 @@ export type JobTask = {
   completedAt?: string
   completedByWorkerId?: string
   skipNote?: string
+  /** Legacy single-photo field (still used for non-walkaround steps) */
   media?: TaskMedia
+  photoMode?: PhotoMode
+  minPhotos?: number
+  /** Draft + submitted walkaround / multi photos */
+  photos?: TaskPhoto[]
+  /** Once set, photos are locked — no delete / swap */
+  photosLockedAt?: string
 }
 
 export type JobNote = {
@@ -59,6 +93,28 @@ export type JobNote = {
   workerId: string
   text: string
   createdAt: string
+}
+
+export type AuditAction =
+  | 'photo_captured'
+  | 'photo_deleted'
+  | 'walkaround_submitted'
+  | 'note_added'
+  | 'task_completed'
+  | 'task_skipped'
+  | 'timer_started'
+  | 'timer_stopped'
+
+export type AuditEvent = {
+  id: string
+  at: string
+  workerId: string
+  action: AuditAction
+  summary: string
+  taskId?: string
+  taskName?: string
+  photoId?: string
+  slotLabel?: string
 }
 
 export type Job = {
@@ -74,6 +130,7 @@ export type Job = {
   assignedWorkerIds: string[]
   notes: JobNote[]
   tasks: JobTask[]
+  auditLog?: AuditEvent[]
   releasedAt?: string
   timerStartedAt?: string
   timerSecondsAccumulated?: number

@@ -18,6 +18,8 @@ export async function uploadJobPhoto(opts: {
   taskId: string
   workerId: string
   dataUrl: string
+  /** Optional slot / photo id for walkaround paths */
+  photoKey?: string
 }): Promise<{ url: string; storagePath?: string }> {
   if (!isFirebaseConfigured()) {
     return { url: opts.dataUrl }
@@ -26,7 +28,8 @@ export async function uploadJobPhoto(opts: {
   const storage = getFirebaseStorage()
   if (!storage) return { url: opts.dataUrl }
 
-  const path = `jobs/${opts.jobId}/tasks/${opts.taskId}/${opts.workerId}-${Date.now()}.jpg`
+  const key = opts.photoKey ? `${opts.photoKey}-` : ''
+  const path = `jobs/${opts.jobId}/tasks/${opts.taskId}/${key}${opts.workerId}-${Date.now()}.jpg`
   const storageRef = ref(storage, path)
   const blob = dataUrlToBlob(opts.dataUrl)
   await uploadBytes(storageRef, blob, {

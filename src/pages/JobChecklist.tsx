@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PhotoCapture } from '../components/PhotoCapture'
+import { WalkaroundCapture } from '../components/WalkaroundCapture'
+import { WALKAROUND_MIN_PHOTOS } from '../data/walkaround'
 import { WORKERS } from '../data/workers'
 import {
   addJobNote,
+  addWalkaroundPhoto,
   completeTask,
+  deleteWalkaroundPhoto,
   firebaseEnabled,
   getJob,
   skipTask,
+  submitWalkaround,
   toggleJobTimer,
 } from '../lib/store'
 import { uploadJobPhoto } from '../lib/uploadPhoto'
@@ -15,7 +20,10 @@ import {
   canFinalInspect,
   isTaskResolved,
   jobProgress,
+  type AuditAction,
   type Job,
+  type JobTask,
+  type WalkaroundSlotId,
   type Worker,
 } from '../types'
 
@@ -36,12 +44,40 @@ function formatTimer(job: Job) {
   return `${m}m ${String(s).padStart(2, '0')}s`
 }
 
+function auditLabel(action: AuditAction) {
+  switch (action) {
+    case 'photo_captured':
+      return 'Photo taken'
+    case 'photo_deleted':
+      return 'Photo deleted'
+    case 'walkaround_submitted':
+      return 'Walkaround submitted'
+    case 'note_added':
+      return 'Note'
+    case 'task_completed':
+      return 'Task done'
+    case 'task_skipped':
+      return 'Task skipped'
+    case 'timer_started':
+      return 'Timer start'
+    case 'timer_stopped':
+      return 'Timer stop'
+    default:
+      return action
+  }
+}
+
+function photoSrc(photo: { url?: string; dataUrl?: string }) {
+  return photo.url || photo.dataUrl || ''
+}
+
 export function JobChecklist({ worker, onJobsChanged }: Props) {
   const { jobId } = useParams()
   const [job, setJob] = useState<Job | null>(() => (jobId ? getJob(jobId) ?? null : null))
   const [pendingPhotoTaskId, setPendingPhotoTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
+  const [walkaroundBusy, setWalkaroundBusy] = useState(false)
 
   // Always re-read from shared store when opening a job / switching user session.
   useEffect(() => {
@@ -75,9 +111,15 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
 
   const showQa = canFinalInspect(worker) && job.status === 'Gone Out'
   const pct = jobProgress(job)
+  const auditLog = job.auditLog ?? []
 
   function refresh(updated: Job) {
-    setJob({ ...updated, notes: [...updated.notes], tasks: [...updated.tasks] })
+    setJob({
+      ...updated,
+      notes: [...updated.notes],
+      tasks: [...updated.tasks],
+      auditLog: [...(updated.auditLog ?? [])],
+    })
     onJobsChanged()
   }
 
@@ -97,7 +139,6 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
         })
         photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
         storagePath = uploaded.storagePath
-        // If still a data URL (mock mode), keep it locally
         if (!photoUrl) localPreview = uploaded.url
       }
 
@@ -116,9 +157,66 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
     }
   }
 
-  function mediaSrc(task: { media?: { url?: string; dataUrl?: string } }) {
-    // Prefer cloud URL; fall back to local preview so all users on this device see it.
+  function mediaSrc(task: JobTask) {
     return task.media?.url || task.media?.dataUrl || ''
+  }
+
+  async function onWalkaroundCapture(taskId: string, slotId: WalkaroundSlotId, dataUrl: string) {
+    setError(null)
+    setWalkaroundBusy(true)
+    try {
+      const uploaded = await uploadJobPhoto({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        dataUrl,
+        photoKey: slotId,
+      })
+      const photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
+      const updated = addWalkaroundPhoto({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        slotId,
+        photoDataUrl: photoUrl ? dataUrl : uploaded.url,
+        photoUrl,
+        storagePath: uploaded.storagePath,
+      })
+      if (updated) refresh(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save photo')
+    } finally {
+      setWalkaroundBusy(false)
+    }
+  }
+
+  function onWalkaroundDelete(taskId: string, photoId: string) {
+    setError(null)
+    try {
+      const updated = deleteWalkaroundPhoto({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        photoId,
+      })
+      if (updated) refresh(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete photo')
+    }
+  }
+
+  function onWalkaroundSubmit(taskId: string) {
+    setError(null)
+    try {
+      const updated = submitWalkaround({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+      })
+      if (updated) refresh(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not submit walkaround')
+    }
   }
 
   function markSkipped(taskId: string) {
@@ -155,7 +253,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
   }
 
   function onToggleTimer() {
-    const updated = toggleJobTimer({ jobId: job!.id })
+    const updated = toggleJobTimer({ jobId: job!.id, workerId: worker.id })
     if (updated) refresh(updated)
   }
 
@@ -273,7 +371,24 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                     <p className="skip-note">{task.skipNote ?? 'Not on this vehicle'}</p>
                   )}
                 </div>
-                {task.media && mediaSrc(task) ? (
+                {task.photoMode === 'walkaround' && (task.photos?.length ?? 0) > 0 ? (
+                  <div className="walkaround-review-grid">
+                    {task.photos!.map((photo) => {
+                      const src = photoSrc(photo)
+                      if (!src) return null
+                      return (
+                        <figure key={photo.id} className="walkaround-review-item">
+                          <img src={src} alt={photo.slotLabel} className="qa-photo" />
+                          <figcaption className="muted">
+                            {photo.slotLabel}
+                            <br />
+                            {new Date(photo.capturedAt).toLocaleString()}
+                          </figcaption>
+                        </figure>
+                      )
+                    })}
+                  </div>
+                ) : task.media && mediaSrc(task) ? (
                   <img src={mediaSrc(task)} alt={task.taskName} className="qa-photo" />
                 ) : task.status === 'Skipped' ? null : (
                   <p className="muted">No photo</p>
@@ -295,6 +410,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                 const done = task.status === 'Complete'
                 const skipped = task.status === 'Skipped'
                 const resolved = isTaskResolved(task.status)
+                const isWalkaround = task.photoMode === 'walkaround'
+                const locked = Boolean(task.photosLockedAt) || done
 
                 return (
                   <li
@@ -315,7 +432,13 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                         {done && task.completedByWorkerId && (
                           <p className="muted">Done by {workerName(task.completedByWorkerId)}</p>
                         )}
-                        {!resolved && task.requiresPhoto && (
+                        {!resolved && isWalkaround && (
+                          <p className="muted">
+                            Minimum {task.minPhotos ?? WALKAROUND_MIN_PHOTOS} walkaround
+                            photos required
+                          </p>
+                        )}
+                        {!resolved && task.requiresPhoto && !isWalkaround && (
                           <p className="muted">Photo required</p>
                         )}
                         {!resolved && task.skippable && (
@@ -326,28 +449,51 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                             {task.skipNote ?? 'Not on this vehicle'}
                           </p>
                         )}
+                        {done && isWalkaround && task.photosLockedAt && (
+                          <p className="muted">
+                            Locked {new Date(task.photosLockedAt).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    {isNext && !resolved && (
+                    {isWalkaround && (isNext || done) && (
+                      <div className="task-actions">
+                        <WalkaroundCapture
+                          photos={task.photos ?? []}
+                          locked={locked}
+                          busy={walkaroundBusy}
+                          minPhotos={task.minPhotos ?? WALKAROUND_MIN_PHOTOS}
+                          onCapture={(slotId, dataUrl) =>
+                            onWalkaroundCapture(task.id, slotId, dataUrl)
+                          }
+                          onDelete={(photoId) => onWalkaroundDelete(task.id, photoId)}
+                          onSubmit={() => onWalkaroundSubmit(task.id)}
+                        />
+                      </div>
+                    )}
+
+                    {isNext && !resolved && !isWalkaround && (
                       <div className="task-actions">
                         {task.requiresPhoto ? (
                           pendingPhotoTaskId === task.id ? (
                             <PhotoCapture
                               label="Open camera"
-                            onCaptured={(dataUrl) => {
-                              void markDone(task.id, dataUrl)
-                            }}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-camera"
-                            onClick={() => setPendingPhotoTaskId(task.id)}
-                          >
-                            {firebaseEnabled() ? 'Take photo (uploads to cloud)' : 'Take photo'}
-                          </button>
-                        )
+                              onCaptured={(dataUrl) => {
+                                void markDone(task.id, dataUrl)
+                              }}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-camera"
+                              onClick={() => setPendingPhotoTaskId(task.id)}
+                            >
+                              {firebaseEnabled()
+                                ? 'Take photo (uploads to cloud)'
+                                : 'Take photo'}
+                            </button>
+                          )
                         ) : (
                           <button
                             type="button"
@@ -370,7 +516,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     )}
 
-                    {done && task.media && mediaSrc(task) && (
+                    {done && !isWalkaround && task.media && mediaSrc(task) && (
                       <img src={mediaSrc(task)} alt="" className="thumb" />
                     )}
                   </li>
@@ -379,6 +525,35 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
           </ul>
         </section>
       )}
+
+      <section className="section">
+        <h2>
+          Audit log <span className="section-count">{auditLog.length}</span>
+        </h2>
+        <p className="muted">
+          Backlog of photo times, deletes, notes, and submissions for this job.
+        </p>
+        {auditLog.length === 0 ? (
+          <p className="muted empty">No activity yet</p>
+        ) : (
+          <ul className="audit-list">
+            {auditLog.map((event) => (
+              <li key={event.id} className={`audit-item audit-${event.action}`}>
+                <div className="audit-top">
+                  <span className="audit-action">{auditLabel(event.action)}</span>
+                  <span className="muted">{new Date(event.at).toLocaleString()}</span>
+                </div>
+                <p className="audit-summary">{event.summary}</p>
+                <p className="muted">
+                  {workerName(event.workerId)}
+                  {event.slotLabel ? ` · ${event.slotLabel}` : ''}
+                  {event.taskName ? ` · ${event.taskName}` : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

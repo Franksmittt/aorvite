@@ -1,6 +1,17 @@
 import { MOCK_JOBS } from '../data/mockJobs'
 import { PACKAGE_TEMPLATES } from '../data/templates'
-import type { Job, JobNote, JobTask, Session, TaskMedia } from '../types'
+import { WALKAROUND_MIN_PHOTOS, walkaroundSlotLabel } from '../data/walkaround'
+import type {
+  AuditAction,
+  AuditEvent,
+  Job,
+  JobNote,
+  JobTask,
+  Session,
+  TaskMedia,
+  TaskPhoto,
+  WalkaroundSlotId,
+} from '../types'
 import { isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
@@ -65,6 +76,10 @@ export function loadJobs(): Job[] {
         job.notes = []
         migrated = true
       }
+      if (!job.auditLog) {
+        job.auditLog = []
+        migrated = true
+      }
       if ((job.status as string) === 'Pending') {
         job.status = 'Coming'
         migrated = true
@@ -81,6 +96,31 @@ export function loadJobs(): Job[] {
       for (const task of job.tasks) {
         if (!task.phase) {
           task.phase = 'Work'
+          migrated = true
+        }
+        const looksLikeWalkaround =
+          /pre-inspection/i.test(task.taskName) &&
+          (/corner|walkaround|walk-around/i.test(task.taskName) ||
+            task.photoMode === 'walkaround')
+        if (looksLikeWalkaround && task.photoMode !== 'walkaround') {
+          task.photoMode = 'walkaround'
+          task.minPhotos = WALKAROUND_MIN_PHOTOS
+          task.photos = task.photos ?? []
+          if (/all 4 corners/i.test(task.taskName)) {
+            task.taskName = 'Pre-inspection walkaround photos (8 angles)'
+          }
+          migrated = true
+        }
+        if (task.photoMode === 'walkaround' && !task.photos) {
+          task.photos = []
+          migrated = true
+        }
+        if (
+          task.photoMode === 'walkaround' &&
+          task.status === 'Complete' &&
+          !task.photosLockedAt
+        ) {
+          task.photosLockedAt = task.completedAt ?? new Date().toISOString()
           migrated = true
         }
       }
@@ -129,6 +169,35 @@ function mergeTaskMedia(
   }
 }
 
+function mergePhotos(local?: TaskPhoto[], cloud?: TaskPhoto[]): TaskPhoto[] {
+  const byId = new Map<string, TaskPhoto>()
+  for (const photo of cloud ?? []) byId.set(photo.id, photo)
+  for (const photo of local ?? []) {
+    const existing = byId.get(photo.id)
+    if (!existing) {
+      byId.set(photo.id, photo)
+      continue
+    }
+    byId.set(photo.id, {
+      ...existing,
+      ...photo,
+      url: photo.url || existing.url,
+      dataUrl: photo.dataUrl || existing.dataUrl,
+      storagePath: photo.storagePath || existing.storagePath,
+    })
+  }
+  return [...byId.values()].sort((a, b) =>
+    a.capturedAt < b.capturedAt ? -1 : 1,
+  )
+}
+
+function mergeAudit(local?: AuditEvent[], cloud?: AuditEvent[]): AuditEvent[] {
+  const byId = new Map<string, AuditEvent>()
+  for (const event of cloud ?? []) byId.set(event.id, event)
+  for (const event of local ?? []) byId.set(event.id, event)
+  return [...byId.values()].sort((a, b) => (a.at < b.at ? 1 : -1))
+}
+
 function mergeJob(local: Job, cloud: Job): Job {
   const cloudTasks = new Map(cloud.tasks.map((t) => [t.id, t]))
   const localTasks = new Map(local.tasks.map((t) => [t.id, t]))
@@ -154,6 +223,10 @@ function mergeJob(local: Job, cloud: Job): Job {
       ...other,
       ...base,
       media: taskHasMedia({ media } as JobTask) ? media : base.media ?? other.media,
+      photos: mergePhotos(lt.photos, ct.photos),
+      photoMode: base.photoMode ?? other.photoMode,
+      minPhotos: base.minPhotos ?? other.minPhotos,
+      photosLockedAt: base.photosLockedAt ?? other.photosLockedAt,
       completedAt: base.completedAt ?? other.completedAt,
       completedByWorkerId: base.completedByWorkerId ?? other.completedByWorkerId,
       skipNote: base.skipNote ?? other.skipNote,
@@ -178,6 +251,7 @@ function mergeJob(local: Job, cloud: Job): Job {
     ...cloud,
     tasks,
     notes,
+    auditLog: mergeAudit(local.auditLog, cloud.auditLog),
     assignedWorkerIds: [...assigned],
     timerSecondsAccumulated: Math.max(
       local.timerSecondsAccumulated ?? 0,
@@ -186,6 +260,32 @@ function mergeJob(local: Job, cloud: Job): Job {
     timerStartedAt: cloud.timerStartedAt ?? local.timerStartedAt,
     releasedAt: cloud.releasedAt ?? local.releasedAt,
   }
+}
+
+function appendAudit(
+  job: Job,
+  opts: {
+    workerId: string
+    action: AuditAction
+    summary: string
+    taskId?: string
+    taskName?: string
+    photoId?: string
+    slotLabel?: string
+  },
+) {
+  const event: AuditEvent = {
+    id: uid(),
+    at: new Date().toISOString(),
+    workerId: opts.workerId,
+    action: opts.action,
+    summary: opts.summary,
+    ...(opts.taskId ? { taskId: opts.taskId } : {}),
+    ...(opts.taskName ? { taskName: opts.taskName } : {}),
+    ...(opts.photoId ? { photoId: opts.photoId } : {}),
+    ...(opts.slotLabel ? { slotLabel: opts.slotLabel } : {}),
+  }
+  job.auditLog = [event, ...(job.auditLog ?? [])]
 }
 
 /** Merge cloud + local so a Firestore pull never wipes photos taken on this device. */
@@ -223,6 +323,9 @@ export function createJob(input: {
     phase: step.phase ?? 'Work',
     stepOrder: step.stepOrder,
     status: 'Pending',
+    ...(step.photoMode ? { photoMode: step.photoMode } : {}),
+    ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
+    ...(step.photoMode === 'walkaround' ? { photos: [] } : {}),
   }))
 
   const job: Job = {
@@ -237,6 +340,7 @@ export function createJob(input: {
     intakeDate: new Date().toISOString(),
     assignedWorkerIds: input.assignedWorkerIds ?? [],
     notes: [],
+    auditLog: [],
     tasks,
   }
 
@@ -299,6 +403,10 @@ export function completeTask(opts: {
   const task = job.tasks.find((t) => t.id === opts.taskId)
   if (!task) return null
 
+  if (task.photoMode === 'walkaround') {
+    throw new Error('Use walkaround submit for this step')
+  }
+
   if (task.requiresPhoto && !opts.photoDataUrl && !opts.photoUrl) {
     throw new Error('Photo required')
   }
@@ -309,8 +417,9 @@ export function completeTask(opts: {
   task.skipNote = undefined
   if (opts.photoDataUrl || opts.photoUrl) {
     // Never write `undefined` fields — Firestore rejects them and sync fails.
+    const mediaId = uid()
     task.media = {
-      id: uid(),
+      id: mediaId,
       capturedAt: new Date().toISOString(),
       // Keep local preview so other logins on this device always see the photo,
       // even if cloud pull is delayed. Prefer cloud URL when rendering.
@@ -318,7 +427,187 @@ export function completeTask(opts: {
       ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
       ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
     }
+    appendAudit(job, {
+      workerId: opts.workerId,
+      action: 'photo_captured',
+      summary: `Photo captured for “${task.taskName}”`,
+      taskId: task.id,
+      taskName: task.taskName,
+      photoId: mediaId,
+    })
   }
+
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'task_completed',
+    summary: `Completed “${task.taskName}”`,
+    taskId: task.id,
+    taskName: task.taskName,
+  })
+
+  if (!job.assignedWorkerIds.includes(opts.workerId)) {
+    job.assignedWorkerIds = [...job.assignedWorkerIds, opts.workerId]
+  }
+
+  return finalizeTaskProgress(job)
+}
+
+export function addWalkaroundPhoto(opts: {
+  jobId: string
+  taskId: string
+  workerId: string
+  slotId: WalkaroundSlotId
+  photoDataUrl?: string
+  photoUrl?: string
+  storagePath?: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task) return null
+  if (task.photoMode !== 'walkaround') {
+    throw new Error('Not a walkaround step')
+  }
+  if (task.photosLockedAt || task.status === 'Complete') {
+    throw new Error('Walkaround already submitted — photos are locked')
+  }
+  if (!opts.photoDataUrl && !opts.photoUrl) {
+    throw new Error('Photo required')
+  }
+
+  const slotLabel = walkaroundSlotLabel(opts.slotId)
+  task.photos = task.photos ?? []
+
+  const existing = task.photos.find((p) => p.slotId === opts.slotId)
+  if (existing) {
+    task.photos = task.photos.filter((p) => p.id !== existing.id)
+    appendAudit(job, {
+      workerId: opts.workerId,
+      action: 'photo_deleted',
+      summary: `Replaced ${slotLabel} photo on “${task.taskName}”`,
+      taskId: task.id,
+      taskName: task.taskName,
+      photoId: existing.id,
+      slotLabel,
+    })
+  }
+
+  const photo: TaskPhoto = {
+    id: uid(),
+    slotId: opts.slotId,
+    slotLabel,
+    capturedAt: new Date().toISOString(),
+    capturedByWorkerId: opts.workerId,
+    ...(opts.photoDataUrl ? { dataUrl: opts.photoDataUrl } : {}),
+    ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
+    ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
+  }
+  task.photos.push(photo)
+
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'photo_captured',
+    summary: `Captured ${slotLabel} · ${new Date(photo.capturedAt).toLocaleString()}`,
+    taskId: task.id,
+    taskName: task.taskName,
+    photoId: photo.id,
+    slotLabel,
+  })
+
+  if (!job.assignedWorkerIds.includes(opts.workerId)) {
+    job.assignedWorkerIds = [...job.assignedWorkerIds, opts.workerId]
+  }
+
+  if (job.status === 'Coming') job.status = 'In Workshop'
+  updateJob(job)
+  vibrate()
+  return job
+}
+
+export function deleteWalkaroundPhoto(opts: {
+  jobId: string
+  taskId: string
+  workerId: string
+  photoId: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task) return null
+  if (task.photosLockedAt || task.status === 'Complete') {
+    throw new Error('Walkaround already submitted — cannot delete photos')
+  }
+
+  const photo = (task.photos ?? []).find((p) => p.id === opts.photoId)
+  if (!photo) throw new Error('Photo not found')
+
+  task.photos = (task.photos ?? []).filter((p) => p.id !== opts.photoId)
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'photo_deleted',
+    summary: `Deleted ${photo.slotLabel} photo (taken ${new Date(photo.capturedAt).toLocaleString()})`,
+    taskId: task.id,
+    taskName: task.taskName,
+    photoId: photo.id,
+    slotLabel: photo.slotLabel,
+  })
+
+  updateJob(job)
+  vibrate()
+  return job
+}
+
+export function submitWalkaround(opts: {
+  jobId: string
+  taskId: string
+  workerId: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task) return null
+  if (task.photoMode !== 'walkaround') {
+    throw new Error('Not a walkaround step')
+  }
+  if (task.status === 'Complete') {
+    throw new Error('Already submitted')
+  }
+
+  const min = task.minPhotos ?? WALKAROUND_MIN_PHOTOS
+  const photos = task.photos ?? []
+  if (photos.length < min) {
+    throw new Error(`Need ${min} photos — ${photos.length} taken`)
+  }
+
+  const slots = new Set(photos.map((p) => p.slotId).filter(Boolean))
+  if (slots.size < min) {
+    throw new Error(`Fill all ${min} walkaround angles before submitting`)
+  }
+
+  const now = new Date().toISOString()
+  task.status = 'Complete'
+  task.completedAt = now
+  task.completedByWorkerId = opts.workerId
+  task.photosLockedAt = now
+  task.skipNote = undefined
+
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'walkaround_submitted',
+    summary: `Submitted walkaround (${photos.length} photos) — locked`,
+    taskId: task.id,
+    taskName: task.taskName,
+  })
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'task_completed',
+    summary: `Completed “${task.taskName}”`,
+    taskId: task.id,
+    taskName: task.taskName,
+  })
 
   if (!job.assignedWorkerIds.includes(opts.workerId)) {
     job.assignedWorkerIds = [...job.assignedWorkerIds, opts.workerId]
@@ -353,6 +642,14 @@ export function skipTask(opts: {
   task.skipNote = opts.note?.trim() || 'Not fitted on this vehicle'
   task.media = undefined
 
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'task_skipped',
+    summary: `Skipped “${task.taskName}”${task.skipNote ? ` — ${task.skipNote}` : ''}`,
+    taskId: task.id,
+    taskName: task.taskName,
+  })
+
   if (!job.assignedWorkerIds.includes(opts.workerId)) {
     job.assignedWorkerIds = [...job.assignedWorkerIds, opts.workerId]
   }
@@ -379,6 +676,11 @@ export function addJobNote(opts: {
   }
 
   job.notes = [note, ...(job.notes ?? [])]
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'note_added',
+    summary: `Note: ${text}`,
+  })
   updateJob(job)
   vibrate()
   return job
@@ -395,7 +697,7 @@ export function setAssignedWorkers(opts: {
   return job
 }
 
-export function toggleJobTimer(opts: { jobId: string }): Job | null {
+export function toggleJobTimer(opts: { jobId: string; workerId?: string }): Job | null {
   const job = getJob(opts.jobId)
   if (!job) return null
 
@@ -404,9 +706,23 @@ export function toggleJobTimer(opts: { jobId: string }): Job | null {
     const elapsed = Math.floor((now - new Date(job.timerStartedAt).getTime()) / 1000)
     job.timerSecondsAccumulated = (job.timerSecondsAccumulated ?? 0) + elapsed
     job.timerStartedAt = undefined
+    if (opts.workerId) {
+      appendAudit(job, {
+        workerId: opts.workerId,
+        action: 'timer_stopped',
+        summary: `Work timer stopped (+${elapsed}s)`,
+      })
+    }
   } else {
     job.timerStartedAt = new Date().toISOString()
     if (job.status === 'Coming') job.status = 'In Workshop'
+    if (opts.workerId) {
+      appendAudit(job, {
+        workerId: opts.workerId,
+        action: 'timer_started',
+        summary: 'Work timer started',
+      })
+    }
   }
 
   updateJob(job)

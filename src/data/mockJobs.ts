@@ -35,6 +35,9 @@ function buildTasks(
       phase: step.phase ?? 'Work',
       stepOrder: step.stepOrder,
       status: 'Pending',
+      ...(step.photoMode ? { photoMode: step.photoMode } : {}),
+      ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
+      ...(step.photoMode === 'walkaround' ? { photos: [] } : {}),
     }
 
     if (skipIds.includes(step.id) && step.skippable) {
