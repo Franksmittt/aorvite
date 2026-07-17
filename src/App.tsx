@@ -6,14 +6,13 @@ import {
   purgeDemoDataFromCloud,
 } from './lib/firestoreSync'
 import { isFirebaseConfigured } from './lib/firebase'
-import { wipeLocalOrdersStorage } from './lib/inventoryStore'
+import { APP_GENERATION, ensureAppGeneration } from './lib/appGeneration'
 import {
   loadJobs,
   loadSession,
   mergeJobsFromCloud,
   saveJobs,
   saveSession,
-  wipeLocalJobsStorage,
 } from './lib/store'
 import { Dashboard } from './pages/Dashboard'
 import { Hub } from './pages/Hub'
@@ -32,18 +31,15 @@ import {
 } from './types'
 import './App.css'
 
-const DEMO_PURGE_FLAG = 'aor-purged-demo-v1'
+/**
+ * Cloud pull was rehydrating old demo jobs from Firestore.
+ * Keep uploads/sync for NEW work, but do not pull the full jobs list until
+ * the workshop has a clean slate for real testing.
+ */
+const CLOUD_JOB_PULL_ENABLED = false
 
-function ensureLocalDemoWipe() {
-  if (typeof localStorage === 'undefined') return
-  if (localStorage.getItem(DEMO_PURGE_FLAG) === '1') return
-  wipeLocalJobsStorage()
-  wipeLocalOrdersStorage()
-  saveJobs([])
-}
-
-// Run before first paint so old local seed never flashes in.
-ensureLocalDemoWipe()
+// Drop every old aor-* local key when generation bumps (runs before first paint).
+ensureAppGeneration()
 
 function AppRoutes() {
   const [worker, setWorker] = useState<Worker | null>(() => {
@@ -52,11 +48,11 @@ function AppRoutes() {
     return WORKERS.find((w) => w.id === session.workerId) ?? null
   })
   const [jobs, setJobs] = useState<Job[]>(() => loadJobs())
-  const [bootstrapped, setBootstrapped] = useState(false)
 
   const pullJobsFromCloud = useCallback(async () => {
-    if (!isFirebaseConfigured()) return
+    if (!CLOUD_JOB_PULL_ENABLED || !isFirebaseConfigured()) return
     try {
+      await purgeDemoDataFromCloud()
       const cloudJobs = await fetchJobsFromCloud()
       if (cloudJobs) {
         const merged = mergeJobsFromCloud(cloudJobs)
@@ -68,23 +64,17 @@ function AppRoutes() {
     }
   }, [])
 
-  // Delete seeded docs from Firestore, then pull only real jobs.
   useEffect(() => {
+    // Always try to delete known demo docs; never rehydrate them into the UI.
     void (async () => {
+      if (!isFirebaseConfigured()) return
       try {
-        if (isFirebaseConfigured()) {
-          const result = await purgeDemoDataFromCloud()
-          console.info('Purged demo data from cloud', result)
-        }
-        localStorage.setItem(DEMO_PURGE_FLAG, '1')
-        await pullJobsFromCloud()
-        setJobs(loadJobs())
+        const result = await purgeDemoDataFromCloud()
+        console.info('Purged demo data from cloud', result)
       } catch (err) {
-        console.warn('Demo purge / cloud pull failed', err)
-        localStorage.setItem(DEMO_PURGE_FLAG, '1')
-      } finally {
-        setBootstrapped(true)
+        console.warn('Demo purge failed', err)
       }
+      await pullJobsFromCloud()
     })()
   }, [pullJobsFromCloud])
 
@@ -93,13 +83,6 @@ function AppRoutes() {
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [])
-
-  // Re-merge when someone logs in so photos from other sessions are visible.
-  useEffect(() => {
-    if (!worker || !bootstrapped) return
-    void pullJobsFromCloud()
-    setJobs(loadJobs())
-  }, [worker, pullJobsFromCloud, bootstrapped])
 
   function refreshJobs() {
     setJobs(loadJobs())
@@ -111,21 +94,27 @@ function AppRoutes() {
   }
 
   if (!worker) {
-    return <Login onLoggedIn={setWorker} />
+    return <Login onLoggedIn={setWorker} buildId={APP_GENERATION} />
   }
 
   return (
     <Routes>
-      <Route path="/" element={<Hub worker={worker} onLogout={logout} />} />
+      <Route
+        path="/"
+        element={
+          <Hub
+            worker={worker}
+            onLogout={logout}
+            buildId={APP_GENERATION}
+            cloudPullEnabled={CLOUD_JOB_PULL_ENABLED}
+          />
+        }
+      />
       <Route
         path="/workshop"
         element={
           canAccessWorkshop(worker) ? (
-            <Dashboard
-              worker={worker}
-              jobs={jobs}
-              onLogout={logout}
-            />
+            <Dashboard worker={worker} jobs={jobs} onLogout={logout} />
           ) : (
             <Navigate to="/orders" replace />
           )
