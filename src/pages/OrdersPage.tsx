@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AppNav } from '../components/AppNav'
 import { QuicklistPicker } from '../components/QuicklistPicker'
@@ -8,14 +8,18 @@ import {
   PARTS_QUICKLIST,
 } from '../data/partsCatalog'
 import { WORKERS } from '../data/workers'
+import { isFirebaseConfigured } from '../lib/firebase'
 import {
   addSupplier,
   cancelOpenOrder,
   createAndIssueManualOrder,
   createPartsOrder,
   issueOrder,
+  listenForCloudOrders,
   loadOrders,
   loadSuppliers,
+  ORDERS_CHANGED_EVENT,
+  reconcileOrdersWithCloud,
   receiveOrder,
   updateOpenOrder,
 } from '../lib/inventoryStore'
@@ -71,6 +75,10 @@ export function OrdersPage({ worker }: Props) {
   const supplierAdmin = canManageSuppliers(worker)
   const [orders, setOrders] = useState(() => loadOrders())
   const [suppliers, setSuppliers] = useState(() => loadSuppliers())
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'live' | 'error'>(
+    'idle',
+  )
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [tab, setTab] = useState<'queue' | 'new' | 'manual' | 'suppliers'>(
     issuer ? 'queue' : 'new',
   )
@@ -102,6 +110,71 @@ export function OrdersPage({ worker }: Props) {
   const [newSupplierNotes, setNewSupplierNotes] = useState('')
 
   const jobs = useMemo(() => loadJobs().filter((j) => j.status !== 'Gone Out'), [])
+
+  useEffect(() => {
+    function onLocalChange() {
+      setOrders(loadOrders())
+      setSuppliers(loadSuppliers())
+    }
+    window.addEventListener(ORDERS_CHANGED_EVENT, onLocalChange)
+    window.addEventListener('storage', onLocalChange)
+    return () => {
+      window.removeEventListener(ORDERS_CHANGED_EVENT, onLocalChange)
+      window.removeEventListener('storage', onLocalChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isFirebaseConfigured()) {
+      setSyncState('idle')
+      setSyncError('Local mode — orders stay on this phone only')
+      return
+    }
+
+    let cancelled = false
+    let unsub = () => {}
+
+    void (async () => {
+      setSyncState('syncing')
+      setSyncError(null)
+      try {
+        const merged = await reconcileOrdersWithCloud()
+        if (!cancelled) {
+          setOrders(merged)
+          setSyncState('live')
+        }
+      } catch (err) {
+        console.warn('Orders cloud reconcile failed', err)
+        if (!cancelled) {
+          setSyncState('error')
+          setSyncError(
+            err instanceof Error
+              ? err.message
+              : 'Could not sync orders from Firebase',
+          )
+        }
+      }
+
+      unsub = listenForCloudOrders(
+        (merged) => {
+          if (cancelled) return
+          setOrders(merged)
+          setSyncState('live')
+          setSyncError(null)
+        },
+        (err) => {
+          if (cancelled) return
+          setSyncState('error')
+          setSyncError(err.message)
+        },
+      )
+    })()
+
+    return () => {
+      cancelled = true
+      unsub()
+    }
+  }, [])
 
   const draftQty = useMemo(() => {
     const map: Record<string, number> = {}
@@ -458,6 +531,19 @@ export function OrdersPage({ worker }: Props) {
             : 'Request parts — you can edit until Yogs accepts the order'
         }
       />
+
+      <p
+        className={`sub sync-status ${
+          syncState === 'error' ? 'sync-status-error' : ''
+        }`}
+      >
+        {syncState === 'syncing' && 'Syncing orders with Firebase…'}
+        {syncState === 'live' && 'Live sync on — orders shared across phones'}
+        {syncState === 'error' &&
+          (syncError || 'Cloud sync failed — showing this phone only')}
+        {syncState === 'idle' &&
+          (syncError || 'Local mode — orders stay on this phone only')}
+      </p>
 
       <div className="chip-row chip-row-scroll">
         <button

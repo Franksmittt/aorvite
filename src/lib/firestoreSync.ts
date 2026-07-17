@@ -3,10 +3,12 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   setDoc,
   type Firestore,
+  type Unsubscribe,
 } from 'firebase/firestore'
 import {
   DEMO_JOB_IDS,
@@ -90,15 +92,44 @@ export async function syncOrderToCloud(order: PartsOrder): Promise<void> {
   if (!isFirebaseConfigured()) return
   if (isDemoOrder(order)) return
   const db = requireDb()
-  await setDoc(doc(db, ORDERS, order.id), toFirestoreData(order), { merge: true })
+  try {
+    await setDoc(doc(db, ORDERS, order.id), toFirestoreData(order), { merge: true })
+  } catch (err) {
+    console.error('Failed to sync order to Firestore', order.id, order.orderNumber, err)
+    throw err
+  }
+}
+
+function mapOrderDocs(
+  docs: Array<{ id: string; data: () => Record<string, unknown> }>,
+): PartsOrder[] {
+  return stripDemoOrders(
+    docs.map((d) => ({ id: d.id, ...d.data() }) as PartsOrder),
+  ).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
 }
 
 export async function fetchOrdersFromCloud(): Promise<PartsOrder[] | null> {
   if (!isFirebaseConfigured()) return null
   const db = requireDb()
-  const snap = await getDocs(query(collection(db, ORDERS), orderBy('createdAt', 'desc')))
-  return stripDemoOrders(
-    snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PartsOrder),
+  // No orderBy — avoids hard failure when an index/field is missing.
+  const snap = await getDocs(collection(db, ORDERS))
+  return mapOrderDocs(snap.docs)
+}
+
+/** Live orders feed so Yogs sees Jaco’s request without refreshing. */
+export function subscribeOrdersFromCloud(
+  onChange: (orders: PartsOrder[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  if (!isFirebaseConfigured()) return () => {}
+  const db = requireDb()
+  return onSnapshot(
+    collection(db, ORDERS),
+    (snap) => onChange(mapOrderDocs(snap.docs)),
+    (err) => {
+      console.error('Orders realtime sync failed', err)
+      onError?.(err)
+    },
   )
 }
 

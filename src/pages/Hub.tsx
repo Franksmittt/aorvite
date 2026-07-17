@@ -52,8 +52,8 @@ export function Hub({ worker, onLogout, buildId, cloudPullEnabled }: Props) {
           <strong>Order</strong>
           <p>
             {canIssueOrders(worker)
-              ? 'Accept staff requests → issue → print → receive'
-              : 'Request parts (editable until Yogs accepts)'}
+              ? 'Accept staff requests → issue → print → receive (live sync)'
+              : 'Request parts — syncs to Yogs on every phone'}
           </p>
         </Link>
 
