@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { WORKERS } from './data/workers'
 import { fetchJobsFromCloud } from './lib/firestoreSync'
 import { isFirebaseConfigured } from './lib/firebase'
-import { loadJobs, loadSession, saveJobs, saveSession } from './lib/store'
+import {
+  loadJobs,
+  loadSession,
+  mergeJobsFromCloud,
+  saveJobs,
+  saveSession,
+} from './lib/store'
 import { Dashboard } from './pages/Dashboard'
 import { Hub } from './pages/Hub'
 import { Intake } from './pages/Intake'
@@ -29,6 +35,20 @@ function AppRoutes() {
   })
   const [jobs, setJobs] = useState<Job[]>(() => loadJobs())
 
+  const pullJobsFromCloud = useCallback(async () => {
+    if (!isFirebaseConfigured()) return
+    try {
+      const cloudJobs = await fetchJobsFromCloud()
+      if (cloudJobs && cloudJobs.length > 0) {
+        const merged = mergeJobsFromCloud(cloudJobs)
+        saveJobs(merged)
+        setJobs(merged)
+      }
+    } catch (err) {
+      console.warn('Firestore jobs pull failed — using local cache', err)
+    }
+  }, [])
+
   useEffect(() => {
     const onStorage = () => setJobs(loadJobs())
     window.addEventListener('storage', onStorage)
@@ -36,19 +56,15 @@ function AppRoutes() {
   }, [])
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) return
-    void (async () => {
-      try {
-        const cloudJobs = await fetchJobsFromCloud()
-        if (cloudJobs && cloudJobs.length > 0) {
-          saveJobs(cloudJobs)
-          setJobs(cloudJobs)
-        }
-      } catch (err) {
-        console.warn('Firestore jobs pull failed — using local cache', err)
-      }
-    })()
-  }, [])
+    void pullJobsFromCloud()
+  }, [pullJobsFromCloud])
+
+  // Re-merge when someone logs in so photos from other sessions are visible.
+  useEffect(() => {
+    if (!worker) return
+    void pullJobsFromCloud()
+    setJobs(loadJobs())
+  }, [worker, pullJobsFromCloud])
 
   function refreshJobs() {
     setJobs(loadJobs())

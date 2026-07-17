@@ -21,10 +21,34 @@ function requireDb(): Firestore {
   return db
 }
 
+/** Firestore rejects `undefined` fields — strip them before every write. */
+function toFirestoreData<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+/** Keep local dataUrl previews on-device only — sync cloud URL/path to Firestore. */
+function jobForCloud(job: Job): Job {
+  return {
+    ...job,
+    tasks: job.tasks.map((task) => {
+      if (!task.media) return task
+      const { dataUrl: _unused, ...cloudMedia } = task.media
+      if (!cloudMedia.url && !cloudMedia.storagePath) {
+        // Offline/local-only capture — do not push giant data URLs to Firestore.
+        const { media: _media, ...rest } = task
+        return rest
+      }
+      return { ...task, media: cloudMedia }
+    }),
+  }
+}
+
 export async function syncJobToCloud(job: Job): Promise<void> {
   if (!isFirebaseConfigured()) return
   const db = requireDb()
-  await setDoc(doc(db, JOBS, job.id), job, { merge: true })
+  await setDoc(doc(db, JOBS, job.id), toFirestoreData(jobForCloud(job)), {
+    merge: true,
+  })
 }
 
 export async function fetchJobsFromCloud(): Promise<Job[] | null> {
@@ -37,7 +61,7 @@ export async function fetchJobsFromCloud(): Promise<Job[] | null> {
 export async function syncOrderToCloud(order: PartsOrder): Promise<void> {
   if (!isFirebaseConfigured()) return
   const db = requireDb()
-  await setDoc(doc(db, ORDERS, order.id), order, { merge: true })
+  await setDoc(doc(db, ORDERS, order.id), toFirestoreData(order), { merge: true })
 }
 
 export async function fetchOrdersFromCloud(): Promise<PartsOrder[] | null> {
@@ -50,13 +74,17 @@ export async function fetchOrdersFromCloud(): Promise<PartsOrder[] | null> {
 export async function syncStocktakeToCloud(stocktake: Stocktake): Promise<void> {
   if (!isFirebaseConfigured()) return
   const db = requireDb()
-  await setDoc(doc(db, STOCKTAKES, stocktake.id), stocktake, { merge: true })
+  await setDoc(doc(db, STOCKTAKES, stocktake.id), toFirestoreData(stocktake), {
+    merge: true,
+  })
 }
 
 export async function syncSupplierToCloud(supplier: Supplier): Promise<void> {
   if (!isFirebaseConfigured()) return
   const db = requireDb()
-  await setDoc(doc(db, SUPPLIERS, supplier.id), supplier, { merge: true })
+  await setDoc(doc(db, SUPPLIERS, supplier.id), toFirestoreData(supplier), {
+    merge: true,
+  })
 }
 
 export async function fetchSuppliersFromCloud(): Promise<Supplier[] | null> {
