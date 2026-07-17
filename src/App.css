@@ -1537,6 +1537,15 @@
   font-weight: 700;
 }
 
+.build-stamp {
+  margin: 0.55rem 0 0;
+  color: #86efac;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
 .walkaround {
   display: grid;
   gap: 0.85rem;

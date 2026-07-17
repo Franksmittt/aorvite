@@ -5,9 +5,10 @@ import type { Worker } from '../types'
 
 type Props = {
   onLoggedIn: (worker: Worker) => void
+  buildId?: string
 }
 
-export function Login({ onLoggedIn }: Props) {
+export function Login({ onLoggedIn, buildId }: Props) {
   const [selected, setSelected] = useState<Worker | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +47,10 @@ export function Login({ onLoggedIn }: Props) {
           <p className="brand">Absolute Offroad</p>
           <h1>Sign in</h1>
           <p className="sub">Choose your name to continue</p>
+          <p className="build-stamp">
+            Clean build {buildId ?? '—'} · open{' '}
+            <strong>aorvite.vercel.app</strong> · Marius is Staff
+          </p>
         </header>
         <ul className="worker-list group">
           {WORKERS.map((w) => (
@@ -75,7 +80,9 @@ export function Login({ onLoggedIn }: Props) {
         </button>
         <div className="avatar lg">{selected.fullName.slice(0, 1)}</div>
         <h1>{selected.fullName}</h1>
-        <p className="sub">Enter PIN</p>
+        <p className="sub">
+          {ROLE_LABELS[selected.role]} · Enter PIN
+        </p>
       </header>
 
       <div className="pin-dots" aria-label="PIN progress">

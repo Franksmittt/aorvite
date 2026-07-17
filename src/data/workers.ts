@@ -11,7 +11,7 @@ export const WORKERS: Worker[] = [
 
 export const ROLE_LABELS: Record<Worker['role'], string> = {
   Owner: 'Company Owner',
-  Manager: 'Workshop Manager',
+  Manager: 'Manager',
   Staff: 'Staff',
   Orders: 'Parts / Orders',
 }

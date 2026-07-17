@@ -10,9 +10,11 @@ import {
 type Props = {
   worker: Worker
   onLogout: () => void
+  buildId?: string
+  cloudPullEnabled?: boolean
 }
 
-export function Hub({ worker, onLogout }: Props) {
+export function Hub({ worker, onLogout, buildId, cloudPullEnabled }: Props) {
   const workshop = canAccessWorkshop(worker)
   const ordersFocus = worker.role === 'Orders'
 
@@ -27,7 +29,9 @@ export function Hub({ worker, onLogout }: Props) {
           </p>
           <p className={`sub ${isFirebaseConfigured() ? 'firebase-on' : 'firebase-off'}`}>
             {firebaseStatusLabel()}
+            {!cloudPullEnabled ? ' · local jobs only' : ''}
           </p>
+          <p className="build-stamp">Build {buildId ?? '—'} · aorvite.vercel.app</p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={onLogout}>
           Sign out
