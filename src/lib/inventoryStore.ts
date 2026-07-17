@@ -1,3 +1,4 @@
+import { stripDemoOrders } from '../data/demoData'
 import { PARTS_QUICKLIST } from '../data/partsCatalog'
 import { DEFAULT_SUPPLIERS } from '../data/suppliers'
 import { TOOLS } from '../data/tools'
@@ -17,11 +18,10 @@ import {
   syncSupplierToCloud,
 } from './firestoreSync'
 
-const ORDERS_KEY = 'aor-orders-v3'
+const ORDERS_KEY = 'aor-orders-v4'
 const SUPPLIERS_KEY = 'aor-suppliers-v1'
 const STOCKTAKES_KEY = 'aor-stocktakes-v1'
 const ORDER_SEQ_KEY = 'aor-order-seq'
-const LEGACY_ORDER_KEYS = ['aor-orders-v2', 'aor-orders-seeded-v2']
 
 function uid() {
   return crypto.randomUUID()
@@ -73,18 +73,22 @@ export function addSupplier(input: {
   return supplier
 }
 
-function clearLegacyOrderKeys() {
-  for (const key of LEGACY_ORDER_KEYS) {
-    localStorage.removeItem(key)
+export function wipeLocalOrdersStorage() {
+  const keys: string[] = []
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i)
+    if (!key) continue
+    if (key.startsWith('aor-orders') || key === 'aor-order-seq') keys.push(key)
   }
+  for (const key of keys) localStorage.removeItem(key)
 }
 
 export function loadOrders(): PartsOrder[] {
-  clearLegacyOrderKeys()
   const raw = localStorage.getItem(ORDERS_KEY)
   if (!raw) return []
   try {
-    return (JSON.parse(raw) as PartsOrder[]).map(normalizeOrder)
+    const orders = stripDemoOrders((JSON.parse(raw) as PartsOrder[]).map(normalizeOrder))
+    return orders
   } catch {
     return []
   }
