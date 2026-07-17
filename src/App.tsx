@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { WORKERS } from './data/workers'
-import { fetchJobsFromCloud } from './lib/firestoreSync'
+import {
+  fetchJobsFromCloud,
+  purgeDemoDataFromCloud,
+} from './lib/firestoreSync'
 import { isFirebaseConfigured } from './lib/firebase'
+import { wipeLocalOrdersStorage } from './lib/inventoryStore'
 import {
   loadJobs,
   loadSession,
   mergeJobsFromCloud,
   saveJobs,
   saveSession,
+  wipeLocalJobsStorage,
 } from './lib/store'
 import { Dashboard } from './pages/Dashboard'
 import { Hub } from './pages/Hub'
@@ -27,6 +32,19 @@ import {
 } from './types'
 import './App.css'
 
+const DEMO_PURGE_FLAG = 'aor-purged-demo-v1'
+
+function ensureLocalDemoWipe() {
+  if (typeof localStorage === 'undefined') return
+  if (localStorage.getItem(DEMO_PURGE_FLAG) === '1') return
+  wipeLocalJobsStorage()
+  wipeLocalOrdersStorage()
+  saveJobs([])
+}
+
+// Run before first paint so old local seed never flashes in.
+ensureLocalDemoWipe()
+
 function AppRoutes() {
   const [worker, setWorker] = useState<Worker | null>(() => {
     const session = loadSession()
@@ -34,12 +52,13 @@ function AppRoutes() {
     return WORKERS.find((w) => w.id === session.workerId) ?? null
   })
   const [jobs, setJobs] = useState<Job[]>(() => loadJobs())
+  const [bootstrapped, setBootstrapped] = useState(false)
 
   const pullJobsFromCloud = useCallback(async () => {
     if (!isFirebaseConfigured()) return
     try {
       const cloudJobs = await fetchJobsFromCloud()
-      if (cloudJobs && cloudJobs.length > 0) {
+      if (cloudJobs) {
         const merged = mergeJobsFromCloud(cloudJobs)
         saveJobs(merged)
         setJobs(merged)
@@ -49,22 +68,38 @@ function AppRoutes() {
     }
   }, [])
 
+  // Delete seeded docs from Firestore, then pull only real jobs.
+  useEffect(() => {
+    void (async () => {
+      try {
+        if (isFirebaseConfigured()) {
+          const result = await purgeDemoDataFromCloud()
+          console.info('Purged demo data from cloud', result)
+        }
+        localStorage.setItem(DEMO_PURGE_FLAG, '1')
+        await pullJobsFromCloud()
+        setJobs(loadJobs())
+      } catch (err) {
+        console.warn('Demo purge / cloud pull failed', err)
+        localStorage.setItem(DEMO_PURGE_FLAG, '1')
+      } finally {
+        setBootstrapped(true)
+      }
+    })()
+  }, [pullJobsFromCloud])
+
   useEffect(() => {
     const onStorage = () => setJobs(loadJobs())
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  useEffect(() => {
-    void pullJobsFromCloud()
-  }, [pullJobsFromCloud])
-
   // Re-merge when someone logs in so photos from other sessions are visible.
   useEffect(() => {
-    if (!worker) return
+    if (!worker || !bootstrapped) return
     void pullJobsFromCloud()
     setJobs(loadJobs())
-  }, [worker, pullJobsFromCloud])
+  }, [worker, pullJobsFromCloud, bootstrapped])
 
   function refreshJobs() {
     setJobs(loadJobs())

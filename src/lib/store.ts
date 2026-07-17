@@ -1,3 +1,4 @@
+import { stripDemoJobs } from '../data/demoData'
 import { PACKAGE_TEMPLATES } from '../data/templates'
 import { WALKAROUND_MIN_PHOTOS, walkaroundSlotLabel } from '../data/walkaround'
 import type {
@@ -15,9 +16,8 @@ import { isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
 
-const JOBS_KEY = 'aor-jobs-v4'
+const JOBS_KEY = 'aor-jobs-v5'
 const SESSION_KEY = 'aor-session'
-const LEGACY_JOB_KEYS = ['aor-jobs-v3', 'aor-seeded-v3']
 
 function uid(): string {
   return crypto.randomUUID()
@@ -45,18 +45,26 @@ export function saveSession(session: Session | null) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
-function clearLegacyJobKeys() {
-  for (const key of LEGACY_JOB_KEYS) {
-    localStorage.removeItem(key)
+/** Drop every legacy jobs key so demo seed cannot linger on-device. */
+export function wipeLocalJobsStorage() {
+  const keys: string[] = []
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i)
+    if (!key) continue
+    if (key.startsWith('aor-jobs') || key.startsWith('aor-seeded')) keys.push(key)
   }
+  for (const key of keys) localStorage.removeItem(key)
 }
 
 export function loadJobs(): Job[] {
-  clearLegacyJobKeys()
   const raw = localStorage.getItem(JOBS_KEY)
   if (!raw) return []
   try {
-    const jobs = JSON.parse(raw) as Job[]
+    const parsed = JSON.parse(raw) as Job[]
+    const jobs = stripDemoJobs(parsed)
+    if (jobs.length !== parsed.length) {
+      saveJobs(jobs)
+    }
     let migrated = false
 
     for (const job of jobs) {
@@ -286,12 +294,12 @@ export function mergeJobsFromCloud(cloudJobs: Job[]): Job[] {
   const byId = new Map<string, Job>()
 
   for (const job of localJobs) byId.set(job.id, job)
-  for (const cloudJob of cloudJobs) {
+  for (const cloudJob of stripDemoJobs(cloudJobs)) {
     const local = byId.get(cloudJob.id)
     byId.set(cloudJob.id, local ? mergeJob(local, cloudJob) : cloudJob)
   }
 
-  return [...byId.values()].sort((a, b) =>
+  return stripDemoJobs([...byId.values()]).sort((a, b) =>
     a.intakeDate < b.intakeDate ? 1 : -1,
   )
 }
