@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { WORKERS } from './data/workers'
-import { loadJobs, loadSession, saveSession } from './lib/store'
+import { fetchJobsFromCloud } from './lib/firestoreSync'
+import { isFirebaseConfigured } from './lib/firebase'
+import { loadJobs, loadSession, saveJobs, saveSession } from './lib/store'
 import { Dashboard } from './pages/Dashboard'
 import { Hub } from './pages/Hub'
 import { Intake } from './pages/Intake'
@@ -31,6 +33,21 @@ function AppRoutes() {
     const onStorage = () => setJobs(loadJobs())
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return
+    void (async () => {
+      try {
+        const cloudJobs = await fetchJobsFromCloud()
+        if (cloudJobs && cloudJobs.length > 0) {
+          saveJobs(cloudJobs)
+          setJobs(cloudJobs)
+        }
+      } catch (err) {
+        console.warn('Firestore jobs pull failed — using local cache', err)
+      }
+    })()
   }, [])
 
   function refreshJobs() {

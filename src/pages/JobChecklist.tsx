@@ -5,10 +5,12 @@ import { WORKERS } from '../data/workers'
 import {
   addJobNote,
   completeTask,
+  firebaseEnabled,
   getJob,
   skipTask,
   toggleJobTimer,
 } from '../lib/store'
+import { uploadJobPhoto } from '../lib/uploadPhoto'
 import {
   canFinalInspect,
   isTaskResolved,
@@ -70,20 +72,43 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
     onJobsChanged()
   }
 
-  function markDone(taskId: string, photoDataUrl?: string) {
+  async function markDone(taskId: string, photoDataUrl?: string) {
     setError(null)
     try {
+      let photoUrl: string | undefined
+      let storagePath: string | undefined
+      let localPreview = photoDataUrl
+
+      if (photoDataUrl) {
+        const uploaded = await uploadJobPhoto({
+          jobId: job!.id,
+          taskId,
+          workerId: worker.id,
+          dataUrl: photoDataUrl,
+        })
+        photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
+        storagePath = uploaded.storagePath
+        // If still a data URL (mock mode), keep it locally
+        if (!photoUrl) localPreview = uploaded.url
+      }
+
       const updated = completeTask({
         jobId: job!.id,
         taskId,
         workerId: worker.id,
-        photoDataUrl,
+        photoDataUrl: localPreview,
+        photoUrl,
+        storagePath,
       })
       if (updated) refresh(updated)
       setPendingPhotoTaskId(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not complete task')
     }
+  }
+
+  function mediaSrc(task: { media?: { url?: string; dataUrl?: string } }) {
+    return task.media?.url || task.media?.dataUrl || ''
   }
 
   function markSkipped(taskId: string) {
@@ -238,8 +263,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                     <p className="skip-note">{task.skipNote ?? 'Not on this vehicle'}</p>
                   )}
                 </div>
-                {task.media ? (
-                  <img src={task.media.dataUrl} alt={task.taskName} className="qa-photo" />
+                {task.media && mediaSrc(task) ? (
+                  <img src={mediaSrc(task)} alt={task.taskName} className="qa-photo" />
                 ) : task.status === 'Skipped' ? null : (
                   <p className="muted">No photo</p>
                 )}
@@ -300,17 +325,19 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                           pendingPhotoTaskId === task.id ? (
                             <PhotoCapture
                               label="Open camera"
-                              onCaptured={(dataUrl) => markDone(task.id, dataUrl)}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-camera"
-                              onClick={() => setPendingPhotoTaskId(task.id)}
-                            >
-                              Take photo
-                            </button>
-                          )
+                            onCaptured={(dataUrl) => {
+                              void markDone(task.id, dataUrl)
+                            }}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-camera"
+                            onClick={() => setPendingPhotoTaskId(task.id)}
+                          >
+                            {firebaseEnabled() ? 'Take photo (uploads to cloud)' : 'Take photo'}
+                          </button>
+                        )
                         ) : (
                           <button
                             type="button"
@@ -333,8 +360,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     )}
 
-                    {done && task.media && (
-                      <img src={task.media.dataUrl} alt="" className="thumb" />
+                    {done && task.media && mediaSrc(task) && (
+                      <img src={mediaSrc(task)} alt="" className="thumb" />
                     )}
                   </li>
                 )

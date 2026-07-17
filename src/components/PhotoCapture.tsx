@@ -45,7 +45,7 @@ export function PhotoCapture({ onCaptured, label = 'Take photo' }: Props) {
         disabled={busy}
         onClick={() => inputRef.current?.click()}
       >
-        {busy ? 'Compressing…' : label}
+        {busy ? 'Processing photo…' : label}
       </button>
       {error && <p className="error-text">{error}</p>}
     </div>

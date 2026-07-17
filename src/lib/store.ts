@@ -2,6 +2,8 @@ import { MOCK_JOBS } from '../data/mockJobs'
 import { PACKAGE_TEMPLATES } from '../data/templates'
 import type { Job, JobNote, JobTask, Session } from '../types'
 import { isTaskResolved } from '../types'
+import { syncJobToCloud } from './firestoreSync'
+import { isFirebaseConfigured } from './firebase'
 
 const JOBS_KEY = 'aor-jobs-v3'
 const SESSION_KEY = 'aor-session'
@@ -134,6 +136,7 @@ export function createJob(input: {
   const jobs = loadJobs()
   jobs.unshift(job)
   saveJobs(jobs)
+  void syncJobToCloud(job)
   return job
 }
 
@@ -147,6 +150,7 @@ export function updateJob(job: Job) {
   if (idx === -1) return
   jobs[idx] = job
   saveJobs(jobs)
+  void syncJobToCloud(job)
 }
 
 function finalizeTaskProgress(job: Job) {
@@ -179,6 +183,8 @@ export function completeTask(opts: {
   taskId: string
   workerId: string
   photoDataUrl?: string
+  photoUrl?: string
+  storagePath?: string
 }): Job | null {
   const job = getJob(opts.jobId)
   if (!job) return null
@@ -186,7 +192,7 @@ export function completeTask(opts: {
   const task = job.tasks.find((t) => t.id === opts.taskId)
   if (!task) return null
 
-  if (task.requiresPhoto && !opts.photoDataUrl) {
+  if (task.requiresPhoto && !opts.photoDataUrl && !opts.photoUrl) {
     throw new Error('Photo required')
   }
 
@@ -194,10 +200,13 @@ export function completeTask(opts: {
   task.completedAt = new Date().toISOString()
   task.completedByWorkerId = opts.workerId
   task.skipNote = undefined
-  if (opts.photoDataUrl) {
+  if (opts.photoDataUrl || opts.photoUrl) {
     task.media = {
       id: uid(),
-      dataUrl: opts.photoDataUrl,
+      // Prefer Storage URL; keep small local preview only when offline/mock
+      dataUrl: opts.photoUrl ? undefined : opts.photoDataUrl,
+      url: opts.photoUrl,
+      storagePath: opts.storagePath,
       capturedAt: new Date().toISOString(),
     }
   }
@@ -207,6 +216,10 @@ export function completeTask(opts: {
   }
 
   return finalizeTaskProgress(job)
+}
+
+export function firebaseEnabled(): boolean {
+  return isFirebaseConfigured()
 }
 
 export function skipTask(opts: {

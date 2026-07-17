@@ -1316,3 +1316,13 @@
   font-weight: 600;
   font-size: 0.9rem;
 }
+
+.firebase-on {
+  color: #86efac !important;
+  font-weight: 700;
+}
+
+.firebase-off {
+  color: #fbbf24 !important;
+  font-weight: 700;
+}

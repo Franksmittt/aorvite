@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ROLE_LABELS } from '../data/workers'
+import { firebaseStatusLabel, isFirebaseConfigured } from '../lib/firebase'
 import {
   canAccessWorkshop,
   canIssueOrders,
@@ -23,6 +24,9 @@ export function Hub({ worker, onLogout }: Props) {
           <h1>Control</h1>
           <p className="sub">
             {worker.fullName} · {ROLE_LABELS[worker.role]}
+          </p>
+          <p className={`sub ${isFirebaseConfigured() ? 'firebase-on' : 'firebase-off'}`}>
+            {firebaseStatusLabel()}
           </p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={onLogout}>

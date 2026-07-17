@@ -11,6 +11,11 @@ import type {
   StocktakeLine,
   Supplier,
 } from '../types'
+import {
+  syncOrderToCloud,
+  syncStocktakeToCloud,
+  syncSupplierToCloud,
+} from './firestoreSync'
 
 const ORDERS_KEY = 'aor-orders-v2'
 const SUPPLIERS_KEY = 'aor-suppliers-v1'
@@ -41,6 +46,9 @@ export function loadSuppliers(): Supplier[] {
 
 export function saveSuppliers(suppliers: Supplier[]) {
   localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(suppliers))
+  for (const supplier of suppliers) {
+    void syncSupplierToCloud(supplier)
+  }
 }
 
 export function addSupplier(input: {
@@ -175,6 +183,7 @@ export function createPartsOrder(input: {
   const orders = loadOrders()
   orders.unshift(order)
   saveOrders(orders)
+  void syncOrderToCloud(order)
   return order
 }
 
@@ -188,6 +197,7 @@ export function updateOrder(order: PartsOrder) {
   if (idx === -1) return
   orders[idx] = order
   saveOrders(orders)
+  void syncOrderToCloud(order)
 }
 
 export function issueOrder(opts: {
@@ -344,6 +354,7 @@ export function submitStocktake(input: {
   const all = loadStocktakes()
   all.unshift(stocktake)
   saveStocktakes(all)
+  void syncStocktakeToCloud(stocktake)
   return stocktake
 }
 

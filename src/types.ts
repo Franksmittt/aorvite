@@ -32,7 +32,11 @@ export type PackageTemplate = {
 
 export type TaskMedia = {
   id: string
-  dataUrl: string
+  /** Local preview / offline fallback */
+  dataUrl?: string
+  /** Firebase Storage download URL when connected */
+  url?: string
+  storagePath?: string
   capturedAt: string
 }
 

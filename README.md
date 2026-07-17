@@ -38,6 +38,53 @@ npm run dev
 - Final inspection: **Marius only**
 - Orders: staff request → Yogs issues to supplier (Account / EFT / Cash) → print → partial receive → allocate to job
 
-## Firebase (next)
+## Firebase
 
-Configure in Firebase Console when ready. Planned: Firestore jobs/orders, Storage for compressed photos, `africa-south1` region.
+App reads Vite env vars. Without them it stays in **Local mock mode**. With them: photos → Storage, jobs/orders/stocktakes → Firestore.
+
+### Console setup (project `aor-vite`)
+
+1. [Firebase Console](https://console.firebase.google.com/) → add/select project **aor-vite**
+2. Build → **Firestore** → create database → location **`africa-south1` (Johannesburg)** → start in **test mode** for MVP
+3. Build → **Storage** → get started → same region if asked → test mode for MVP
+4. Project settings → Your apps → **Web** → register `aor-vite-web` → copy config
+5. Paste into Vercel env vars (and `.env.local` locally):
+
+```
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=aor-vite
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+6. Redeploy Vercel. Hub should show **Firebase connected**.
+
+### Test rules (MVP only — lock down later)
+
+Firestore:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+Storage:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
