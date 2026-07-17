@@ -2,7 +2,7 @@ import type { Worker } from '../types'
 
 export const WORKERS: Worker[] = [
   { id: 'jaco', fullName: 'Jaco', role: 'Owner', pin: '1111' },
-  { id: 'marius', fullName: 'Marius', role: 'Manager', pin: '2222' },
+  { id: 'marius', fullName: 'Marius', role: 'Staff', pin: '2222' },
   { id: 'jovan', fullName: 'Jovan', role: 'Staff', pin: '3333' },
   { id: 'themba', fullName: 'Themba', role: 'Staff', pin: '4444' },
   { id: 'thando', fullName: 'Thando', role: 'Staff', pin: '5555' },

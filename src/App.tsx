@@ -90,7 +90,6 @@ function AppRoutes() {
               worker={worker}
               jobs={jobs}
               onLogout={logout}
-              onJobsChanged={refreshJobs}
             />
           ) : (
             <Navigate to="/orders" replace />

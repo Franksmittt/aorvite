@@ -1,4 +1,3 @@
-import { MOCK_ORDERS } from '../data/mockOrders'
 import { PARTS_QUICKLIST } from '../data/partsCatalog'
 import { DEFAULT_SUPPLIERS } from '../data/suppliers'
 import { TOOLS } from '../data/tools'
@@ -18,11 +17,11 @@ import {
   syncSupplierToCloud,
 } from './firestoreSync'
 
-const ORDERS_KEY = 'aor-orders-v2'
+const ORDERS_KEY = 'aor-orders-v3'
 const SUPPLIERS_KEY = 'aor-suppliers-v1'
 const STOCKTAKES_KEY = 'aor-stocktakes-v1'
-const ORDERS_SEEDED = 'aor-orders-seeded-v2'
 const ORDER_SEQ_KEY = 'aor-order-seq'
+const LEGACY_ORDER_KEYS = ['aor-orders-v2', 'aor-orders-seeded-v2']
 
 function uid() {
   return crypto.randomUUID()
@@ -74,16 +73,14 @@ export function addSupplier(input: {
   return supplier
 }
 
-function ensureOrdersSeeded() {
-  if (localStorage.getItem(ORDERS_SEEDED) === '1') return
-  if (!localStorage.getItem(ORDERS_KEY)) {
-    saveOrders(MOCK_ORDERS)
+function clearLegacyOrderKeys() {
+  for (const key of LEGACY_ORDER_KEYS) {
+    localStorage.removeItem(key)
   }
-  localStorage.setItem(ORDERS_SEEDED, '1')
 }
 
 export function loadOrders(): PartsOrder[] {
-  ensureOrdersSeeded()
+  clearLegacyOrderKeys()
   const raw = localStorage.getItem(ORDERS_KEY)
   if (!raw) return []
   try {
@@ -119,12 +116,6 @@ function normalizeOrder(order: PartsOrder): PartsOrder {
 
 export function saveOrders(orders: PartsOrder[]) {
   localStorage.setItem(ORDERS_KEY, JSON.stringify(orders))
-}
-
-export function resetMockOrders() {
-  saveOrders(MOCK_ORDERS)
-  saveSuppliers(DEFAULT_SUPPLIERS)
-  localStorage.setItem(ORDERS_SEEDED, '1')
 }
 
 function nextOrderNumber() {

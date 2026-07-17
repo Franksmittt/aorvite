@@ -1,4 +1,3 @@
-import { MOCK_JOBS } from '../data/mockJobs'
 import { PACKAGE_TEMPLATES } from '../data/templates'
 import { WALKAROUND_MIN_PHOTOS, walkaroundSlotLabel } from '../data/walkaround'
 import type {
@@ -16,9 +15,9 @@ import { isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
 
-const JOBS_KEY = 'aor-jobs-v3'
+const JOBS_KEY = 'aor-jobs-v4'
 const SESSION_KEY = 'aor-session'
-const SEEDED_KEY = 'aor-seeded-v3'
+const LEGACY_JOB_KEYS = ['aor-jobs-v3', 'aor-seeded-v3']
 
 function uid(): string {
   return crypto.randomUUID()
@@ -46,21 +45,14 @@ export function saveSession(session: Session | null) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
-function ensureSeeded() {
-  if (localStorage.getItem(SEEDED_KEY) === '1') return
-  if (!localStorage.getItem(JOBS_KEY)) {
-    saveJobs(MOCK_JOBS)
+function clearLegacyJobKeys() {
+  for (const key of LEGACY_JOB_KEYS) {
+    localStorage.removeItem(key)
   }
-  localStorage.setItem(SEEDED_KEY, '1')
-}
-
-export function resetToMockJobs() {
-  saveJobs(MOCK_JOBS)
-  localStorage.setItem(SEEDED_KEY, '1')
 }
 
 export function loadJobs(): Job[] {
-  ensureSeeded()
+  clearLegacyJobKeys()
   const raw = localStorage.getItem(JOBS_KEY)
   if (!raw) return []
   try {

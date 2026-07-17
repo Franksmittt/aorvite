@@ -236,9 +236,9 @@ export function canManage(worker: Worker): boolean {
   return worker.role === 'Owner' || worker.role === 'Manager'
 }
 
-/** Only workshop manager signs vehicles out to clients */
+/** Owner / manager signs vehicles out to clients */
 export function canFinalInspect(worker: Worker): boolean {
-  return worker.role === 'Manager'
+  return worker.role === 'Owner' || worker.role === 'Manager'
 }
 
 export function canIssueOrders(worker: Worker): boolean {

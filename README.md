@@ -1,6 +1,6 @@
 # Absolute Offroad Workshop App
 
-Vite + React PWA-style workshop app — jobs, photo checklists, orders, tool stocktakes. Mock data in `localStorage` for now; Firebase wiring comes next via Firebase Console.
+Vite + React workshop app — jobs, photo checklists, orders, tool stocktakes. Data lives in `localStorage` on the device; with Firebase env vars, photos go to Storage and jobs/orders sync to Firestore.
 
 ## Deploy on Vercel
 
@@ -19,12 +19,12 @@ npm install
 npm run dev
 ```
 
-## Test logins
+## Logins
 
 | Person | Role | PIN |
 | --- | --- | --- |
 | Jaco | Company Owner | 1111 |
-| Marius | Workshop Manager | 2222 |
+| Marius | Staff | 2222 |
 | Jovan | Staff | 3333 |
 | Themba | Staff | 4444 |
 | Thando | Staff | 5555 |
@@ -34,13 +34,15 @@ npm run dev
 
 **Workshop** · **Order** · **Stocktake**
 
-- Photo capture needs **HTTPS** (works on Vercel preview/production; use phone browser, not desktop file picker only).
-- Final inspection: **Marius only**
-- Orders: staff request → Yogs issues to supplier (Account / EFT / Cash) → print → partial receive → allocate to job
+- Starts empty — book in a vehicle, take walkaround photos, request consumables, issue/print as Yogs
+- Photo capture needs **HTTPS** (Vercel preview/production; use phone browser)
+- Final inspection / client release: **Owner** (or Manager role if assigned)
+- Orders: staff request → Yogs issues to supplier (Account / EFT / Cash) → print → receive → allocate to job
+- Each job has an **audit log** (photo times, deletes, notes, submissions)
 
 ## Firebase
 
-App reads Vite env vars. Without them it stays in **Local mock mode**. With them: photos → Storage, jobs/orders/stocktakes → Firestore.
+App reads Vite env vars. Without them it stays in **local mode** (this device only). With them: photos → Storage, jobs/orders/stocktakes → Firestore.
 
 ### Console setup (project `aor-vite`)
 

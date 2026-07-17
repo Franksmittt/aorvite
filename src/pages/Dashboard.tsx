@@ -1,13 +1,11 @@
 import { Link } from 'react-router-dom'
 import { ROLE_LABELS, WORKERS } from '../data/workers'
-import { resetToMockJobs } from '../lib/store'
 import { canManage, jobProgress, type Job, type Worker } from '../types'
 
 type Props = {
   worker: Worker
   jobs: Job[]
   onLogout: () => void
-  onJobsChanged: () => void
 }
 
 function statusClass(status: Job['status']) {
@@ -75,7 +73,7 @@ function JobSection({
   )
 }
 
-export function Dashboard({ worker, jobs, onLogout, onJobsChanged }: Props) {
+export function Dashboard({ worker, jobs, onLogout }: Props) {
   const coming = jobs.filter((j) => j.status === 'Coming')
   const workshop = jobs.filter((j) => j.status === 'In Workshop')
   const inspections = jobs.filter((j) => j.status === 'Final Inspection')
@@ -104,16 +102,6 @@ export function Dashboard({ worker, jobs, onLogout, onJobsChanged }: Props) {
           <Link to="/intake" className="btn btn-primary btn-block">
             Book in vehicle
           </Link>
-          <button
-            type="button"
-            className="btn btn-skip"
-            onClick={() => {
-              resetToMockJobs()
-              onJobsChanged()
-            }}
-          >
-            Reset demo jobs
-          </button>
         </div>
       )}
 

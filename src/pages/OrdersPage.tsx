@@ -16,7 +16,6 @@ import {
   loadOrders,
   loadSuppliers,
   receiveOrder,
-  resetMockOrders,
 } from '../lib/inventoryStore'
 import { loadJobs } from '../lib/store'
 import {
@@ -412,25 +411,13 @@ export function OrdersPage({ worker }: Props) {
           Manual order
         </button>
         {issuer && (
-          <>
-            <button
-              type="button"
-              className={`chip ${tab === 'suppliers' ? 'on' : ''}`}
-              onClick={() => setTab('suppliers')}
-            >
-              Suppliers
-            </button>
-            <button
-              type="button"
-              className="chip"
-              onClick={() => {
-                resetMockOrders()
-                refresh()
-              }}
-            >
-              Reset demo
-            </button>
-          </>
+          <button
+            type="button"
+            className={`chip ${tab === 'suppliers' ? 'on' : ''}`}
+            onClick={() => setTab('suppliers')}
+          >
+            Suppliers
+          </button>
         )}
       </div>
 
