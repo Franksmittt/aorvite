@@ -31,14 +31,32 @@ function jobForCloud(job: Job): Job {
   return {
     ...job,
     tasks: job.tasks.map((task) => {
-      if (!task.media) return task
-      const { dataUrl: _unused, ...cloudMedia } = task.media
-      if (!cloudMedia.url && !cloudMedia.storagePath) {
-        // Offline/local-only capture — do not push giant data URLs to Firestore.
-        const { media: _media, ...rest } = task
-        return rest
+      let next = task
+
+      if (task.media) {
+        const { dataUrl: _unused, ...cloudMedia } = task.media
+        if (!cloudMedia.url && !cloudMedia.storagePath) {
+          const { media: _media, ...rest } = task
+          next = rest
+        } else {
+          next = { ...task, media: cloudMedia }
+        }
       }
-      return { ...task, media: cloudMedia }
+
+      if (next.photos?.length) {
+        next = {
+          ...next,
+          photos: next.photos
+            .map((photo) => {
+              const { dataUrl: _d, ...cloudPhoto } = photo
+              if (!cloudPhoto.url && !cloudPhoto.storagePath) return null
+              return cloudPhoto
+            })
+            .filter((p): p is NonNullable<typeof p> => Boolean(p)),
+        }
+      }
+
+      return next
     }),
   }
 }

@@ -122,7 +122,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
     id: 'front-bumper',
     packageName: 'Front Bumper Fitment',
     steps: [
-      { id: 'fb-1', stepOrder: 1, taskName: 'Pre-inspection photos (all 4 corners)', requiresPhoto: true, skippable: false },
+      { id: 'fb-1', stepOrder: 1, taskName: 'Pre-inspection walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
       { id: 'fb-2', stepOrder: 2, taskName: 'Photo of stripped front chassis — all clips, bolts, and washers accounted for', requiresPhoto: true, skippable: false },
       { id: 'fb-3', stepOrder: 3, taskName: 'Front parking sensors transferred and seated correctly (L/R)', requiresPhoto: false, skippable: true },
       { id: 'fb-4', stepOrder: 4, taskName: 'Indicators / fog lights / DRL mounted with correct fasteners', requiresPhoto: false, skippable: true },
@@ -144,7 +144,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
     id: 'rear-bumper',
     packageName: 'Rear Bumper / Tow Bar Fitment',
     steps: [
-      { id: 'rb-1', stepOrder: 1, taskName: 'Pre-inspection photos (all 4 corners)', requiresPhoto: true, skippable: false },
+      { id: 'rb-1', stepOrder: 1, taskName: 'Pre-inspection walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
       { id: 'rb-2', stepOrder: 2, taskName: 'Photo of stripped rear chassis / bumper mounts — hardware counted', requiresPhoto: true, skippable: false },
       { id: 'rb-3', stepOrder: 3, taskName: 'Rear parking sensors transferred and seated correctly (L/R)', requiresPhoto: false, skippable: true },
       { id: 'rb-4', stepOrder: 4, taskName: 'Reverse camera remounted and aligned', requiresPhoto: false, skippable: true },
@@ -163,7 +163,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
     id: 'suspension-lift',
     packageName: 'Suspension Lift Kit',
     steps: [
-      { id: 'sl-1', stepOrder: 1, taskName: 'Pre-inspection photos (all 4 corners)', requiresPhoto: true, skippable: false },
+      { id: 'sl-1', stepOrder: 1, taskName: 'Pre-inspection walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
       { id: 'sl-2', stepOrder: 2, taskName: 'Old springs/shocks removed — photo of mounts; all hardware bagged/counted', requiresPhoto: true, skippable: false },
       { id: 'sl-3', stepOrder: 3, taskName: 'New springs seated correctly', requiresPhoto: false, skippable: false },
       { id: 'sl-4', stepOrder: 4, taskName: 'Shock bolts torqued — photo of each corner', requiresPhoto: true, skippable: false },
@@ -181,7 +181,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
     id: 'lights-accessories',
     packageName: 'Lights / Accessories Fitment',
     steps: [
-      { id: 'la-1', stepOrder: 1, taskName: 'Pre-inspection photos (all 4 corners)', requiresPhoto: true, skippable: false },
+      { id: 'la-1', stepOrder: 1, taskName: 'Pre-inspection walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
       { id: 'la-2', stepOrder: 2, taskName: 'Mount points marked — photo before drilling', requiresPhoto: true, skippable: false },
       { id: 'la-3', stepOrder: 3, taskName: 'Spotlights / light bar / accessories mounted with correct hardware', requiresPhoto: false, skippable: false },
       { id: 'la-4', stepOrder: 4, taskName: 'Bonnet / fender / rock guards fitted (if on job)', requiresPhoto: false, skippable: true },
@@ -196,7 +196,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
     id: 'exhaust-upgrade',
     packageName: 'Exhaust Upgrade',
     steps: [
-      { id: 'ex-1', stepOrder: 1, taskName: 'Pre-inspection photos (all 4 corners + underbody)', requiresPhoto: true, skippable: false },
+      { id: 'ex-1', stepOrder: 1, taskName: 'Pre-inspection walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
       { id: 'ex-2', stepOrder: 2, taskName: 'Old system removed — hangers, gaskets, and hardware accounted for', requiresPhoto: false, skippable: false },
       { id: 'ex-3', stepOrder: 3, taskName: 'New system fitted — flanges, clamps, and hangers seated', requiresPhoto: true, skippable: false },
       { id: 'ex-4', stepOrder: 4, taskName: 'Clearance check vs chassis, fuel, and brake lines', requiresPhoto: false, skippable: false },

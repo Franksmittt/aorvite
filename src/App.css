@@ -1484,3 +1484,160 @@
   color: #fbbf24 !important;
   font-weight: 700;
 }
+
+.walkaround {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.walkaround-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.walkaround-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.walkaround-slot {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.18);
+  min-width: 0;
+}
+
+.walkaround-slot.filled {
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.walkaround-slot.active {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18);
+}
+
+.walkaround-slot-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.walkaround-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.walkaround-time {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.walkaround-empty {
+  min-height: 96px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.walkaround-empty:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.walkaround-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.walkaround-capture-panel {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.walkaround-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.walkaround-review-item {
+  margin: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.walkaround-review-item figcaption {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.audit-list {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.audit-item {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.audit-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.audit-action {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.audit-summary {
+  margin: 0.35rem 0 0.2rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.audit-photo_deleted .audit-action {
+  color: #fca5a5;
+}
+
+.audit-walkaround_submitted .audit-action {
+  color: #86efac;
+}
+
+@media (min-width: 720px) {
+  .walkaround-grid,
+  .walkaround-review-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
