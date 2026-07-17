@@ -13,7 +13,11 @@ function hoursAgo(n: number) {
   return d.toISOString()
 }
 
-const q = (id: string) => PARTS_QUICKLIST.find((item) => item.id === id)!
+const q = (id: string) => {
+  const item = PARTS_QUICKLIST.find((entry) => entry.id === id)
+  if (!item) throw new Error(`Unknown catalog item: ${id}`)
+  return item
+}
 
 export const MOCK_ORDERS: PartsOrder[] = [
   {
@@ -23,14 +27,15 @@ export const MOCK_ORDERS: PartsOrder[] = [
     requestedByWorkerId: 'jovan',
     jobId: 'job-shop-1',
     jobRegistration: 'CA 88 NW',
+    purpose: 'vehicle',
     supplierId: 'sup-midas',
     supplierName: 'Midas',
     status: 'Open',
     lines: [
       {
         id: 'ol-1',
-        catalogId: 'c-masking',
-        name: q('c-masking').name,
+        catalogId: 'm-masking',
+        name: q('m-masking').name,
         qty: 4,
         qtyReceived: 0,
         unit: 'roll',
@@ -40,8 +45,8 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-2',
-        catalogId: 'c-sikaflex',
-        name: q('c-sikaflex').name,
+        catalogId: 'm-sikaflex',
+        name: q('m-sikaflex').name,
         qty: 2,
         qtyReceived: 0,
         unit: 'tube',
@@ -51,24 +56,23 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-3',
-        catalogId: 'c-m10',
-        name: q('c-m10').name,
+        catalogId: 'm-pop-rivets',
+        name: q('m-pop-rivets').name,
         qty: 1,
         qtyReceived: 0,
-        unit: 'set',
-        note: 'Need M10x90 with big washers',
+        unit: 'pack',
+        note: 'Assorted sizes',
         status: 'Requested',
         allocatedJobId: 'job-shop-1',
         allocatedRegistration: 'CA 88 NW',
       },
       {
         id: 'ol-4',
-        catalogId: 'c-clips-plastic',
-        name: q('c-clips-plastic').name,
-        qty: 1,
+        catalogId: 'm-cable-ties',
+        name: q('m-cable-ties').name,
+        qty: 2,
         qtyReceived: 0,
         unit: 'pack',
-        note: 'Broke grille clips on teardown',
         status: 'Requested',
         allocatedJobId: 'job-shop-1',
         allocatedRegistration: 'CA 88 NW',
@@ -83,14 +87,15 @@ export const MOCK_ORDERS: PartsOrder[] = [
     requestedByWorkerId: 'themba',
     jobRegistration: 'WC 77 WC',
     jobId: 'job-shop-4',
+    purpose: 'vehicle',
     supplierId: 'sup-midas',
     supplierName: 'Midas',
     status: 'Open',
     lines: [
       {
         id: 'ol-5',
-        catalogId: 'c-heatshrink',
-        name: q('c-heatshrink').name,
+        catalogId: 'm-heatshrink',
+        name: q('m-heatshrink').name,
         qty: 2,
         qtyReceived: 0,
         unit: 'pack',
@@ -100,8 +105,8 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-6',
-        catalogId: 'c-connectors',
-        name: q('c-connectors').name,
+        catalogId: 'm-lugs',
+        name: q('m-lugs').name,
         qty: 1,
         qtyReceived: 0,
         unit: 'pack',
@@ -109,8 +114,8 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-7',
-        catalogId: 'c-wire',
-        name: q('c-wire').name,
+        catalogId: 'm-wire',
+        name: q('m-wire').name,
         qty: 10,
         qtyReceived: 0,
         unit: 'm',
@@ -118,11 +123,11 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-8',
-        catalogId: 'c-relay',
-        name: q('c-relay').name,
-        qty: 2,
+        catalogId: 'm-cable',
+        name: q('m-cable').name,
+        qty: 5,
         qtyReceived: 0,
-        unit: 'ea',
+        unit: 'm',
         note: 'Spotlights',
         status: 'Requested',
         allocatedJobId: 'job-shop-4',
@@ -137,6 +142,7 @@ export const MOCK_ORDERS: PartsOrder[] = [
     requestedByWorkerId: 'thando',
     jobRegistration: 'FS 19 FS',
     jobId: 'job-shop-3',
+    purpose: 'vehicle',
     supplierId: 'sup-midas',
     supplierName: 'Midas',
     paymentMethod: 'Account',
@@ -146,8 +152,8 @@ export const MOCK_ORDERS: PartsOrder[] = [
     lines: [
       {
         id: 'ol-9',
-        catalogId: 'c-rust',
-        name: q('c-rust').name,
+        catalogId: 'm-spray-paint',
+        name: q('m-spray-paint').name,
         qty: 2,
         qtyReceived: 0,
         unit: 'can',
@@ -157,8 +163,8 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-10',
-        catalogId: 'c-degreaser',
-        name: q('c-degreaser').name,
+        catalogId: 'm-q20',
+        name: q('m-q20').name,
         qty: 3,
         qtyReceived: 0,
         unit: 'can',
@@ -166,8 +172,8 @@ export const MOCK_ORDERS: PartsOrder[] = [
       },
       {
         id: 'ol-10b',
-        catalogId: 'c-discs',
-        name: q('c-discs').name,
+        catalogId: 'm-cutting',
+        name: q('m-cutting').name,
         qty: 5,
         qtyReceived: 0,
         unit: 'pack',
@@ -182,6 +188,7 @@ export const MOCK_ORDERS: PartsOrder[] = [
     requestedByWorkerId: 'jovan',
     jobRegistration: 'CA 88 NW',
     jobId: 'job-shop-1',
+    purpose: 'vehicle',
     supplierId: 'sup-china',
     supplierName: 'China Shop',
     paymentMethod: 'Cash',
@@ -230,6 +237,7 @@ export const MOCK_ORDERS: PartsOrder[] = [
     createdAt: daysAgo(3),
     requestedByWorkerId: 'jovan',
     jobRegistration: 'ND 22 ZN',
+    purpose: 'vehicle',
     supplierId: 'sup-midas',
     supplierName: 'Midas',
     paymentMethod: 'Account',
@@ -241,18 +249,18 @@ export const MOCK_ORDERS: PartsOrder[] = [
     lines: [
       {
         id: 'ol-11',
-        catalogId: 'c-m8',
-        name: q('c-m8').name,
+        catalogId: 'm-flapper',
+        name: q('m-flapper').name,
         qty: 2,
         qtyReceived: 2,
-        unit: 'set',
+        unit: 'pack',
         status: 'Received',
         allocatedRegistration: 'ND 22 ZN',
       },
       {
         id: 'ol-12',
-        catalogId: 'c-sikaflex',
-        name: q('c-sikaflex').name,
+        catalogId: 'm-sikaflex',
+        name: q('m-sikaflex').name,
         qty: 1,
         qtyReceived: 1,
         unit: 'tube',

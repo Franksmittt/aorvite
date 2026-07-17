@@ -1,7 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AppNav } from '../components/AppNav'
-import { PARTS_QUICKLIST } from '../data/partsCatalog'
+import { QuicklistPicker } from '../components/QuicklistPicker'
+import {
+  CATALOG_CATEGORIES,
+  MIDAS_RUN_CATEGORIES,
+  PARTS_QUICKLIST,
+} from '../data/partsCatalog'
 import { WORKERS } from '../data/workers'
 import {
   addSupplier,
@@ -90,10 +95,24 @@ export function OrdersPage({ worker }: Props) {
   const [newSupplierNotes, setNewSupplierNotes] = useState('')
 
   const jobs = useMemo(() => loadJobs().filter((j) => j.status !== 'Gone Out'), [])
-  const cleaningItems = useMemo(
-    () => PARTS_QUICKLIST.filter((i) => i.category === 'Cleaning'),
-    [],
-  )
+
+  const draftQty = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const line of draft) {
+      if (!line.catalogId) continue
+      map[line.catalogId] = (map[line.catalogId] ?? 0) + line.qty
+    }
+    return map
+  }, [draft])
+
+  const manualQty = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const line of manualDraft) {
+      if (!line.catalogId) continue
+      map[line.catalogId] = (map[line.catalogId] ?? 0) + line.qty
+    }
+    return map
+  }, [manualDraft])
 
   const openOrders = orders.filter((o) => o.status === 'Open')
   const issuedOrders = orders.filter(
@@ -620,37 +639,13 @@ export function OrdersPage({ worker }: Props) {
             shop consumables, Midas run for the workshop, etc.
           </p>
 
-          <h3 className="subsection-title">Cleaning &amp; workshop</h3>
-          <div className="quicklist-grid">
-            {cleaningItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="quick-item"
-                onClick={() => addManualCatalogItem(item.id)}
-              >
-                <strong>{item.name}</strong>
-                <span>{item.category}</span>
-              </button>
-            ))}
-          </div>
-
-          <details className="more-list">
-            <summary>All quicklist items</summary>
-            <div className="quicklist-grid">
-              {PARTS_QUICKLIST.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="quick-item"
-                  onClick={() => addManualCatalogItem(item.id)}
-                >
-                  <strong>{item.name}</strong>
-                  <span>{item.category}</span>
-                </button>
-              ))}
-            </div>
-          </details>
+          <QuicklistPicker
+            categories={CATALOG_CATEGORIES}
+            selectedQty={manualQty}
+            onAdd={addManualCatalogItem}
+            title="Shop supplies"
+            hint="Midas staples + cleaning — tap to add"
+          />
 
           <form className="note-form" onSubmit={addManualCustom}>
             <input
@@ -841,42 +836,18 @@ export function OrdersPage({ worker }: Props) {
         </section>
       ) : tab === 'new' ? (
         <section className="section">
-          <h2>Quicklist</h2>
-          <div className="quicklist-grid">
-            {PARTS_QUICKLIST.filter((i) => i.popular).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="quick-item"
-                onClick={() => addCatalogItem(item.id)}
-              >
-                <strong>{item.name}</strong>
-                <span>{item.category}</span>
-              </button>
-            ))}
-          </div>
-
-          <details className="more-list">
-            <summary>Full list</summary>
-            <div className="quicklist-grid">
-              {PARTS_QUICKLIST.filter((i) => !i.popular).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="quick-item"
-                  onClick={() => addCatalogItem(item.id)}
-                >
-                  <strong>{item.name}</strong>
-                  <span>{item.category}</span>
-                </button>
-              ))}
-            </div>
-          </details>
+          <QuicklistPicker
+            categories={MIDAS_RUN_CATEGORIES}
+            selectedQty={draftQty}
+            onAdd={addCatalogItem}
+            title="Midas run"
+            hint="What they mostly buy — filter by category, tap to add"
+          />
 
           <form className="note-form" onSubmit={addCustom}>
             <input
               className="inline-input"
-              placeholder="Custom item"
+              placeholder="Custom item (not on the list)"
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
             />
