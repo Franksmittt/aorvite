@@ -115,6 +115,19 @@
   animation: rise-in 0.4s ease 0.06s both;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .brand-hero,
+  .hub-grid,
+  .worker-list {
+    animation: none;
+  }
+
+  .hub-card:hover,
+  .btn:active {
+    transform: none;
+  }
+}
+
 .sub,
 .muted {
   color: var(--muted);
