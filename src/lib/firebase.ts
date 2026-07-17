@@ -54,5 +54,5 @@ export function getFirebaseStorage(): FirebaseStorage | null {
 }
 
 export function firebaseStatusLabel(): string {
-  return isFirebaseConfigured() ? 'Firebase connected' : 'Local mock mode'
+  return isFirebaseConfigured() ? 'Firebase connected' : 'Local mode (this device)'
 }

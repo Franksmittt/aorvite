@@ -344,8 +344,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
           <div>
             <p className="task-name">Workshop work complete</p>
             <p className="muted">
-              Only Marius (Workshop Manager) can complete final inspection before
-              the vehicle goes out to the client.
+              Waiting for owner / workshop manager to complete final inspection
+              before the vehicle goes out to the client.
             </p>
           </div>
         </div>
