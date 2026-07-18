@@ -135,26 +135,26 @@ export function Login({ onLoggedIn }: Props) {
         {error && <p className="error-text center">{error}</p>}
 
         <div className="pin-pad">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((key) => {
-            if (key === '') return <span key="spacer" />
-            if (key === '⌫') {
-              return (
-                <button key="back" type="button" className="btn btn-pad" onClick={backspace}>
-                  ⌫
-                </button>
-              )
-            }
-            return (
-              <button
-                key={key}
-                type="button"
-                className="btn btn-pad"
-                onClick={() => pressDigit(key)}
-              >
-                {key}
-              </button>
-            )
-          })}
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              className="btn btn-pad"
+              onClick={() => pressDigit(key)}
+            >
+              {key}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn btn-pad pin-pad-zero"
+            onClick={() => pressDigit('0')}
+          >
+            0
+          </button>
+          <button type="button" className="btn btn-pad" onClick={backspace} aria-label="Delete">
+            ⌫
+          </button>
         </div>
       </div>
     </div>
