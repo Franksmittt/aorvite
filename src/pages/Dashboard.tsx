@@ -84,7 +84,7 @@ export function Dashboard({ worker, jobs }: Props) {
       <PageHeader
         kicker="Workshop"
         title="Job board"
-        subtitle="Pipeline across coming in, on the floor, inspection, and gone out."
+        subtitle="Coming in · on the floor · inspection · gone out"
         actions={
           canManage(worker) ? (
             <Link to="/intake" className="btn btn-primary">
