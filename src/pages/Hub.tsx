@@ -20,7 +20,6 @@ import {
 type Props = {
   worker: Worker
   jobs: Job[]
-  buildId?: string
   cloudPullEnabled?: boolean
 }
 
@@ -31,7 +30,7 @@ function statusTone(status: Job['status']) {
   return 'tone-pending'
 }
 
-export function Hub({ worker, jobs, buildId, cloudPullEnabled }: Props) {
+export function Hub({ worker, jobs, cloudPullEnabled }: Props) {
   const workshop = canAccessWorkshop(worker)
   const ordersFocus = worker.role === 'Orders'
   const manager = canManage(worker)
@@ -112,8 +111,6 @@ export function Hub({ worker, jobs, buildId, cloudPullEnabled }: Props) {
         <p className={`dash-sync ${isFirebaseConfigured() ? 'firebase-on' : 'firebase-off'}`}>
           {firebaseStatusLabel()}
           {!cloudPullEnabled ? ' · local jobs only' : ''}
-          {' · '}
-          Build {buildId ?? '—'}
         </p>
       </section>
 

@@ -6,7 +6,7 @@ import {
   purgeDemoDataFromCloud,
 } from './lib/firestoreSync'
 import { isFirebaseConfigured } from './lib/firebase'
-import { APP_GENERATION, ensureAppGeneration } from './lib/appGeneration'
+import { ensureAppGeneration } from './lib/appGeneration'
 import { reconcileOrdersWithCloud } from './lib/inventoryStore'
 import {
   loadJobs,
@@ -109,7 +109,7 @@ function AppRoutes() {
   if (!worker) {
     return (
       <div className="app-shell app-shell-auth">
-        <Login onLoggedIn={setWorker} buildId={APP_GENERATION} />
+        <Login onLoggedIn={setWorker} />
       </div>
     )
   }
@@ -135,7 +135,6 @@ function AppRoutes() {
                   <Hub
                     worker={worker}
                     jobs={jobs}
-                    buildId={APP_GENERATION}
                     cloudPullEnabled={CLOUD_JOB_PULL_ENABLED}
                   />
                 }
