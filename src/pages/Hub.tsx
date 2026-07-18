@@ -70,9 +70,9 @@ export function Hub({ worker, jobs, buildId, cloudPullEnabled }: Props) {
   return (
     <div className="screen screen-stack hub-screen">
       <PageHeader
-        kicker="FSP · Workshop Ops"
+        kicker="Ops"
         title="Control"
-        subtitle="Floor, parts, and tools in one place — built for the bay, not a desk CRM."
+        subtitle="Floor, parts, and tools at a glance."
         actions={
           manager ? (
             <Link to="/intake" className="btn btn-primary">
