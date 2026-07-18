@@ -235,7 +235,10 @@ export function AppLayout({ worker, jobs, onLogout, children }: Props) {
       <div className="app-column">
         <header className="app-topbar">
           <div className="app-topbar-brand">
-            <p className="app-topbar-title">Absolute Offroad</p>
+            <p className="app-topbar-title">
+              <span className="app-topbar-title-full">Absolute Offroad</span>
+              <span className="app-topbar-title-short">AO</span>
+            </p>
             <span className="app-role-badge">{ROLE_LABELS[worker.role]}</span>
           </div>
 
@@ -251,7 +254,7 @@ export function AppLayout({ worker, jobs, onLogout, children }: Props) {
                   setSearchOpen(true)
                 }}
                 onFocus={() => setSearchOpen(true)}
-                placeholder="Search jobs, plates…"
+                placeholder="Search plates…"
                 aria-label="Search jobs"
               />
               <kbd>Ctrl K</kbd>
@@ -278,9 +281,7 @@ export function AppLayout({ worker, jobs, onLogout, children }: Props) {
                 </div>
               ) : null}
             </div>
-          ) : (
-            <div className="app-search-spacer" />
-          )}
+          ) : null}
 
           <div className="app-topbar-user">
             <div className="app-user-chip" title={worker.fullName}>
@@ -290,8 +291,21 @@ export function AppLayout({ worker, jobs, onLogout, children }: Props) {
                 <span>{ROLE_LABELS[worker.role]}</span>
               </span>
             </div>
-            <button type="button" className="btn btn-ghost app-signout-inline" onClick={onLogout}>
+            <button
+              type="button"
+              className="btn btn-ghost app-signout-inline"
+              onClick={onLogout}
+            >
               Sign out
+            </button>
+            <button
+              type="button"
+              className="app-signout-icon"
+              onClick={onLogout}
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <IconLogout />
             </button>
           </div>
         </header>
