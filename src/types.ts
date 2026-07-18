@@ -13,6 +13,8 @@ export type Worker = {
   fullName: string
   role: WorkerRole
   pin: string
+  /** When false, hidden from Operator Access but still assignable on jobs. */
+  canLogin?: boolean
 }
 
 export type PhotoMode = 'single' | 'walkaround'
