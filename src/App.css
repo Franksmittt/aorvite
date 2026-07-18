@@ -2619,11 +2619,37 @@
 }
 
 .login-logo {
-  margin: 0 0 0.55rem;
-  font-size: clamp(2.75rem, 10vw, 3.5rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.02em;
+  margin: 0 0 0.65rem;
+  padding: 0 0.15em 0.2em;
+  font-size: clamp(3rem, 11vw, 3.85rem);
+  font-weight: 800;
+  letter-spacing: -0.06em;
   line-height: normal;
+  filter: drop-shadow(0 0 28px rgba(188, 167, 134, 0.22));
+}
+
+.login-logo::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--login-khaki) 22%,
+    #fff 50%,
+    var(--login-khaki) 78%,
+    transparent 100%
+  );
+  opacity: 0.85;
 }
 
 .login-logo-a {
@@ -2632,6 +2658,25 @@
 
 .login-logo-o {
   color: var(--login-khaki);
+  transform: translateY(-0.02em);
+}
+
+.login-logo-r {
+  color: #fff;
+  position: relative;
+}
+
+.login-logo-r::before {
+  content: '';
+  position: absolute;
+  top: 0.18em;
+  right: -0.08em;
+  width: 0.28em;
+  height: 0.28em;
+  border-radius: 50%;
+  background: var(--login-khaki);
+  box-shadow: 0 0 10px rgba(188, 167, 134, 0.55);
+  opacity: 0.9;
 }
 
 .login-brand {
@@ -2754,6 +2799,7 @@
 .login-row-text {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   margin-left: 1rem;
   min-width: 0;
 }
@@ -2762,13 +2808,6 @@
   color: #fff;
   font-size: 1.125rem;
   font-weight: 700;
-  line-height: normal;
-}
-
-.login-row-text span {
-  color: var(--login-khaki);
-  font-size: 0.875rem;
-  font-weight: 400;
   line-height: normal;
 }
 

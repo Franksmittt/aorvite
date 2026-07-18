@@ -50,7 +50,13 @@ function AppRoutes() {
   const [worker, setWorker] = useState<Worker | null>(() => {
     const session = loadSession()
     if (!session) return null
-    return WORKERS.find((w) => w.id === session.workerId) ?? null
+    const found = WORKERS.find((w) => w.id === session.workerId) ?? null
+    // Themba (and any canLogin: false) stay on jobs but cannot use the app.
+    if (found && found.canLogin === false) {
+      saveSession(null)
+      return null
+    }
+    return found
   })
   const [jobs, setJobs] = useState<Job[]>(() => loadJobs())
 

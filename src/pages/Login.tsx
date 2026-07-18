@@ -1,20 +1,10 @@
 import { useState } from 'react'
-import { WORKERS } from '../data/workers'
+import { LOGIN_WORKERS } from '../data/workers'
 import { saveSession } from '../lib/store'
 import type { Worker } from '../types'
 
 type Props = {
   onLoggedIn: (worker: Worker) => void
-}
-
-/** Login-only titles — does not change roles elsewhere in the app. */
-const OPERATOR_TITLES: Record<string, string> = {
-  jaco: 'Founder / Owner',
-  marius: 'Head Mechanic / Tuning',
-  jovan: 'Fabricator / Suspension',
-  themba: 'Drivetrain Specialist',
-  thando: 'Diagnostics / Electrical',
-  yogs: 'Parts Procurement / Orders',
 }
 
 function ChevronRight() {
@@ -83,14 +73,14 @@ export function Login({ onLoggedIn }: Props) {
             <p className="login-logo" aria-label="Absolute Offroad">
               <span className="login-logo-a">A</span>
               <span className="login-logo-o">O</span>
+              <span className="login-logo-r">R</span>
             </p>
             <p className="login-brand">Absolute Offroad</p>
             <h1>Operator Access</h1>
-            <p className="login-lead">Select your profile to begin shift.</p>
           </header>
 
           <ul className="login-roster" aria-label="Operators">
-            {WORKERS.map((w) => (
+            {LOGIN_WORKERS.map((w) => (
               <li key={w.id}>
                 <button
                   type="button"
@@ -107,7 +97,6 @@ export function Login({ onLoggedIn }: Props) {
                     </span>
                     <span className="login-row-text">
                       <strong>{w.fullName}</strong>
-                      <span>{OPERATOR_TITLES[w.id] ?? w.role}</span>
                     </span>
                   </span>
                   <ChevronRight />
@@ -134,9 +123,7 @@ export function Login({ onLoggedIn }: Props) {
             {selected.fullName.slice(0, 1)}
           </span>
           <h1>{selected.fullName}</h1>
-          <p className="login-lead">
-            {OPERATOR_TITLES[selected.id] ?? selected.role} · Enter PIN
-          </p>
+          <p className="login-lead">Enter PIN</p>
         </header>
 
         <div className="pin-dots" aria-label="PIN progress">

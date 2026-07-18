@@ -4,10 +4,13 @@ export const WORKERS: Worker[] = [
   { id: 'jaco', fullName: 'Jaco', role: 'Owner', pin: '1111' },
   { id: 'marius', fullName: 'Marius', role: 'Staff', pin: '2222' },
   { id: 'jovan', fullName: 'Jovan', role: 'Staff', pin: '3333' },
-  { id: 'themba', fullName: 'Themba', role: 'Staff', pin: '4444' },
+  /** No phone login — still assignable on jobs / project history. */
+  { id: 'themba', fullName: 'Themba', role: 'Staff', pin: '4444', canLogin: false },
   { id: 'thando', fullName: 'Thando', role: 'Staff', pin: '5555' },
   { id: 'yogs', fullName: 'Yogs', role: 'Orders', pin: '6666' },
 ]
+
+export const LOGIN_WORKERS = WORKERS.filter((w) => w.canLogin !== false)
 
 export const ROLE_LABELS: Record<Worker['role'], string> = {
   Owner: 'Company Owner',
