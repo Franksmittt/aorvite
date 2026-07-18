@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import { ROLE_LABELS, WORKERS } from '../data/workers'
+import { PageHeader } from '../components/PageHeader'
+import { WORKERS } from '../data/workers'
 import { canManage, jobProgress, type Job, type Worker } from '../types'
 
 type Props = {
   worker: Worker
   jobs: Job[]
-  onLogout: () => void
 }
 
 function statusClass(status: Job['status']) {
@@ -43,7 +43,7 @@ function JobRow({ job }: { job: Job }) {
   )
 }
 
-function JobSection({
+function JobColumn({
   title,
   jobs,
   empty,
@@ -53,7 +53,7 @@ function JobSection({
   empty: string
 }) {
   return (
-    <section className="section">
+    <section className="board-column">
       <h2>
         {title}
         <span className="section-count">{jobs.length}</span>
@@ -61,7 +61,7 @@ function JobSection({
       {jobs.length === 0 ? (
         <p className="muted empty">{empty}</p>
       ) : (
-        <ul className="job-list group">
+        <ul className="job-list group board-list">
           {jobs.map((job) => (
             <li key={job.id}>
               <JobRow job={job} />
@@ -73,37 +73,26 @@ function JobSection({
   )
 }
 
-export function Dashboard({ worker, jobs, onLogout }: Props) {
+export function Dashboard({ worker, jobs }: Props) {
   const coming = jobs.filter((j) => j.status === 'Coming')
   const workshop = jobs.filter((j) => j.status === 'In Workshop')
   const inspections = jobs.filter((j) => j.status === 'Final Inspection')
   const goneOut = jobs.filter((j) => j.status === 'Gone Out')
 
   return (
-    <div className="screen">
-      <header className="screen-header row">
-        <div>
-          <Link to="/" className="link-back">
-            ‹ Control
-          </Link>
-          <p className="brand">Absolute Offroad</p>
-          <h1>Workshop</h1>
-          <p className="sub">
-            {worker.fullName} · {ROLE_LABELS[worker.role]}
-          </p>
-        </div>
-        <button type="button" className="btn btn-ghost" onClick={onLogout}>
-          Sign out
-        </button>
-      </header>
-
-      {canManage(worker) && (
-        <div className="action-stack">
-          <Link to="/intake" className="btn btn-primary btn-block">
-            Book in vehicle
-          </Link>
-        </div>
-      )}
+    <div className="screen screen-stack workshop-screen">
+      <PageHeader
+        kicker="Workshop"
+        title="Job board"
+        subtitle="Pipeline across coming in, on the floor, inspection, and gone out."
+        actions={
+          canManage(worker) ? (
+            <Link to="/intake" className="btn btn-primary">
+              Book in vehicle
+            </Link>
+          ) : null
+        }
+      />
 
       <div className="pipeline-summary">
         <div>
@@ -124,14 +113,16 @@ export function Dashboard({ worker, jobs, onLogout }: Props) {
         </div>
       </div>
 
-      <JobSection title="Coming in" jobs={coming} empty="Nothing booked ahead" />
-      <JobSection title="In the workshop" jobs={workshop} empty="No jobs on the floor" />
-      <JobSection
-        title="Final inspection"
-        jobs={inspections}
-        empty="Nothing waiting for release"
-      />
-      <JobSection title="Gone out" jobs={goneOut} empty="No completed jobs yet" />
+      <div className="workshop-board">
+        <JobColumn title="Coming in" jobs={coming} empty="Nothing booked ahead" />
+        <JobColumn title="In the workshop" jobs={workshop} empty="No jobs on the floor" />
+        <JobColumn
+          title="Final inspection"
+          jobs={inspections}
+          empty="Nothing waiting for release"
+        />
+        <JobColumn title="Gone out" jobs={goneOut} empty="No completed jobs yet" />
+      </div>
     </div>
   )
 }

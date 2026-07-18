@@ -1,21 +1,29 @@
-import { Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { PageHeader } from './PageHeader'
 
 type Props = {
   title: string
   subtitle?: string
+  backTo?: string
+  backLabel?: string
+  actions?: ReactNode
 }
 
-export function AppNav({ title, subtitle }: Props) {
+/** Page title block for nested screens (shell handles primary nav). */
+export function AppNav({
+  title,
+  subtitle,
+  backTo,
+  backLabel,
+  actions,
+}: Props) {
   return (
-    <header className="screen-header row">
-      <div>
-        <Link to="/" className="link-back">
-          ‹ Control
-        </Link>
-        <p className="brand">Absolute Offroad</p>
-        <h1>{title}</h1>
-        {subtitle ? <p className="sub">{subtitle}</p> : null}
-      </div>
-    </header>
+    <PageHeader
+      title={title}
+      subtitle={subtitle}
+      backTo={backTo}
+      backLabel={backLabel}
+      actions={actions}
+    />
   )
 }

@@ -15,6 +15,7 @@ import {
   saveJobs,
   saveSession,
 } from './lib/store'
+import { AppLayout } from './components/AppLayout'
 import { Dashboard } from './pages/Dashboard'
 import { Hub } from './pages/Hub'
 import { Intake } from './pages/Intake'
@@ -106,71 +107,95 @@ function AppRoutes() {
   }
 
   if (!worker) {
-    return <Login onLoggedIn={setWorker} buildId={APP_GENERATION} />
+    return (
+      <div className="app-shell app-shell-auth">
+        <Login onLoggedIn={setWorker} buildId={APP_GENERATION} />
+      </div>
+    )
   }
 
   return (
     <Routes>
       <Route
-        path="/"
+        path="/orders/:orderId/print"
         element={
-          <Hub
-            worker={worker}
-            onLogout={logout}
-            buildId={APP_GENERATION}
-            cloudPullEnabled={CLOUD_JOB_PULL_ENABLED}
-          />
+          <div className="app-shell">
+            <OrderPrintPage />
+          </div>
         }
       />
       <Route
-        path="/workshop"
+        path="*"
         element={
-          canAccessWorkshop(worker) ? (
-            <Dashboard worker={worker} jobs={jobs} onLogout={logout} />
-          ) : (
-            <Navigate to="/orders" replace />
-          )
+          <AppLayout worker={worker} jobs={jobs} onLogout={logout}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <Hub
+                    worker={worker}
+                    jobs={jobs}
+                    buildId={APP_GENERATION}
+                    cloudPullEnabled={CLOUD_JOB_PULL_ENABLED}
+                  />
+                }
+              />
+              <Route
+                path="/workshop"
+                element={
+                  canAccessWorkshop(worker) ? (
+                    <Dashboard worker={worker} jobs={jobs} />
+                  ) : (
+                    <Navigate to="/orders" replace />
+                  )
+                }
+              />
+              <Route
+                path="/intake"
+                element={
+                  canManage(worker) ? (
+                    <Intake />
+                  ) : (
+                    <Navigate to="/workshop" replace />
+                  )
+                }
+              />
+              <Route
+                path="/job/:jobId"
+                element={
+                  canAccessWorkshop(worker) ? (
+                    <JobChecklist worker={worker} onJobsChanged={refreshJobs} />
+                  ) : (
+                    <Navigate to="/orders" replace />
+                  )
+                }
+              />
+              <Route path="/orders" element={<OrdersPage worker={worker} />} />
+              <Route
+                path="/stocktake"
+                element={
+                  canAccessWorkshop(worker) ? (
+                    <StocktakePage worker={worker} />
+                  ) : (
+                    <Navigate to="/orders" replace />
+                  )
+                }
+              />
+              <Route
+                path="/stocktake/:stocktakeId"
+                element={
+                  canAccessWorkshop(worker) ? (
+                    <StocktakeDetailPage />
+                  ) : (
+                    <Navigate to="/orders" replace />
+                  )
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </AppLayout>
         }
       />
-      <Route
-        path="/intake"
-        element={
-          canManage(worker) ? <Intake /> : <Navigate to="/workshop" replace />
-        }
-      />
-      <Route
-        path="/job/:jobId"
-        element={
-          canAccessWorkshop(worker) ? (
-            <JobChecklist worker={worker} onJobsChanged={refreshJobs} />
-          ) : (
-            <Navigate to="/orders" replace />
-          )
-        }
-      />
-      <Route path="/orders" element={<OrdersPage worker={worker} />} />
-      <Route path="/orders/:orderId/print" element={<OrderPrintPage />} />
-      <Route
-        path="/stocktake"
-        element={
-          canAccessWorkshop(worker) ? (
-            <StocktakePage worker={worker} />
-          ) : (
-            <Navigate to="/orders" replace />
-          )
-        }
-      />
-      <Route
-        path="/stocktake/:stocktakeId"
-        element={
-          canAccessWorkshop(worker) ? (
-            <StocktakeDetailPage />
-          ) : (
-            <Navigate to="/orders" replace />
-          )
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
@@ -178,9 +203,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="app-shell">
-        <AppRoutes />
-      </div>
+      <AppRoutes />
     </BrowserRouter>
   )
 }

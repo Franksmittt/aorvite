@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { PageHeader } from '../components/PageHeader'
 import { PACKAGE_TEMPLATES } from '../data/templates'
 import { WORKERS } from '../data/workers'
 import { createJob } from '../lib/store'
@@ -64,13 +65,12 @@ export function Intake() {
 
   return (
     <div className="screen screen-stack">
-      <header className="screen-header">
-        <Link to="/workshop" className="link-back">
-          ‹ Workshop
-        </Link>
-        <h1>Book in</h1>
-        <p className="sub">Plate, year, package, and who is on it</p>
-      </header>
+      <PageHeader
+        title="Book in"
+        subtitle="Plate, year, package, and who is on it"
+        backTo="/workshop"
+        backLabel="Workshop"
+      />
 
       <form className="form group-form" onSubmit={handleSubmit}>
         <label className="field">

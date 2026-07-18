@@ -269,34 +269,36 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
 
   return (
     <div className="screen screen-stack">
-      <header className="screen-header">
-        <Link to="/workshop" className="link-back">
-          ‹ Workshop
-        </Link>
-        <p className="plate huge">{job.registration}</p>
-        <p className="sub">
-          {job.year} {job.make} {job.model}
-        </p>
-        <p className="sub">{job.packageName}</p>
-        <p className="sub">Assigned: {assigned}</p>
-        <div className="job-meta-row">
-          <span
-            className={`badge ${
-              job.status === 'Gone Out'
-                ? 'badge-done'
-                : job.status === 'Final Inspection'
-                  ? 'badge-inspection'
-                  : job.status === 'In Workshop'
-                    ? 'badge-active'
-                    : 'badge-pending'
-            }`}
-          >
-            {job.status}
-          </span>
-          <span className="progress-pct big">{pct}%</span>
-        </div>
-        <div className="progress-track tall" aria-hidden>
-          <div className="progress-fill" style={{ width: `${pct}%` }} />
+      <header className="page-header job-page-header">
+        <div className="page-header-copy">
+          <Link to="/workshop" className="link-back">
+            ‹ Workshop
+          </Link>
+          <p className="page-kicker">Job</p>
+          <h1 className="plate-title">{job.registration}</h1>
+          <p className="page-subtitle">
+            {job.year} {job.make} {job.model} · {job.packageName}
+          </p>
+          <p className="sub">Assigned: {assigned}</p>
+          <div className="job-meta-row">
+            <span
+              className={`badge ${
+                job.status === 'Gone Out'
+                  ? 'badge-done'
+                  : job.status === 'Final Inspection'
+                    ? 'badge-inspection'
+                    : job.status === 'In Workshop'
+                      ? 'badge-active'
+                      : 'badge-pending'
+              }`}
+            >
+              {job.status}
+            </span>
+            <span className="progress-pct big">{pct}%</span>
+          </div>
+          <div className="progress-track tall" aria-hidden>
+            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          </div>
         </div>
       </header>
 

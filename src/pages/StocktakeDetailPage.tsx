@@ -24,7 +24,12 @@ export function StocktakeDetailPage() {
 
   return (
     <div className="screen screen-stack">
-      <AppNav title="Stocktake result" subtitle={`${name} · ${new Date(stocktake.createdAt).toLocaleString()}`} />
+      <AppNav
+        title="Stocktake result"
+        subtitle={`${name} · ${new Date(stocktake.createdAt).toLocaleString()}`}
+        backTo="/stocktake"
+        backLabel="Stocktake"
+      />
 
       <div className="pipeline-summary">
         <div>
