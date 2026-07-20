@@ -1,4 +1,5 @@
 import { stripDemoJobs } from '../data/demoData'
+import { getLiveBookIns } from '../data/liveBookIns'
 import { PACKAGE_TEMPLATES } from '../data/templates'
 import { WALKAROUND_MIN_PHOTOS, walkaroundSlotLabel } from '../data/walkaround'
 import { WORKERS } from '../data/workers'
@@ -57,9 +58,33 @@ export function wipeLocalJobsStorage() {
   for (const key of keys) localStorage.removeItem(key)
 }
 
+/** Merge agent/live book-ins that are not yet on this device. */
+function ensureLiveBookIns(jobs: Job[]): Job[] {
+  const live = getLiveBookIns()
+  if (live.length === 0) return jobs
+
+  let changed = false
+  const byId = new Map(jobs.map((j) => [j.id, j]))
+  const byReg = new Map(jobs.map((j) => [j.registration.toUpperCase(), j]))
+
+  for (const bookIn of live) {
+    const existing =
+      byId.get(bookIn.id) ?? byReg.get(bookIn.registration.toUpperCase())
+    if (existing) continue
+    jobs = [bookIn, ...jobs]
+    byId.set(bookIn.id, bookIn)
+    byReg.set(bookIn.registration.toUpperCase(), bookIn)
+    changed = true
+    void syncJobToCloud(bookIn)
+  }
+
+  if (changed) saveJobs(jobs)
+  return jobs
+}
+
 export function loadJobs(): Job[] {
   const raw = localStorage.getItem(JOBS_KEY)
-  if (!raw) return []
+  if (!raw) return ensureLiveBookIns([])
   try {
     const parsed = JSON.parse(raw) as Job[]
     const jobs = stripDemoJobs(parsed)
@@ -128,9 +153,9 @@ export function loadJobs(): Job[] {
     }
 
     if (migrated) saveJobs(jobs)
-    return jobs
+    return ensureLiveBookIns(jobs)
   } catch {
-    return []
+    return ensureLiveBookIns([])
   }
 }
 

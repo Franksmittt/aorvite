@@ -5,11 +5,12 @@ import { PACKAGE_TEMPLATES } from '../data/templates'
 import { WORKERS } from '../data/workers'
 import { createJob } from '../lib/store'
 
-const MAKES = ['Toyota', 'Ford', 'Isuzu', 'Volkswagen', 'Other']
+const MAKES = ['Toyota', 'Ford', 'Isuzu', 'Mitsubishi', 'Volkswagen', 'Other']
 const MODELS: Record<string, string[]> = {
   Toyota: ['Hilux 2.8 GD-6', 'Hilux 2.4 GD-6', 'Land Cruiser 79', 'Land Cruiser 76', 'Fortuner', 'Other'],
   Ford: ['Ranger', 'Everest', 'Other'],
   Isuzu: ['D-Max', 'MU-X', 'Other'],
+  Mitsubishi: ['Pajero Sport', 'Triton', 'Other'],
   Volkswagen: ['Amarok', 'Other'],
   Other: ['Other'],
 }

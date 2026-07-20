@@ -178,6 +178,25 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
     ],
   },
   {
+    id: 'rear-suspension-trailer-plug',
+    packageName: 'Rear Suspension + Trailer Plug',
+    steps: [
+      { id: 'rst-1', stepOrder: 1, taskName: 'Pre-inspection walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
+      { id: 'rst-2', stepOrder: 2, taskName: 'Rear springs/shocks removed — photo of mounts; hardware bagged/counted', requiresPhoto: true, skippable: false },
+      { id: 'rst-3', stepOrder: 3, taskName: 'New rear springs seated correctly', requiresPhoto: false, skippable: false },
+      { id: 'rst-4', stepOrder: 4, taskName: 'Rear shock bolts torqued — photo of both sides', requiresPhoto: true, skippable: false },
+      { id: 'rst-5', stepOrder: 5, taskName: 'Brake lines and ABS wiring checked for stretch / clearance', requiresPhoto: false, skippable: false },
+      { id: 'rst-6', stepOrder: 6, taskName: 'Trailer plug / tow socket fitted and wired', requiresPhoto: true, skippable: false },
+      { id: 'rst-7', stepOrder: 7, taskName: 'Trailer lights function test (indicators, brakes, tail, reverse)', requiresPhoto: false, skippable: false },
+      { id: 'rst-8', stepOrder: 8, taskName: 'Final rear ride-height and tow-plug photos', requiresPhoto: true, skippable: false },
+      ...FINAL_INSPECTION,
+      { id: 'rst-qa-tow', stepOrder: 107, phase: 'Final Inspection', taskName: 'Trailer plug, earth, and trailer light circuit re-tested', requiresPhoto: false, skippable: false },
+      { id: 'rst-qa-torque', stepOrder: 108, phase: 'Final Inspection', taskName: 'Wheel nuts and rear suspension fasteners re-torqued after road test', requiresPhoto: false, skippable: false },
+      { id: 'rst-qa-height', stepOrder: 109, phase: 'Final Inspection', taskName: 'Rear ride height measured; brake lines and clearance rechecked', requiresPhoto: false, skippable: false },
+      ...FINAL_RELEASE,
+    ],
+  },
+  {
     id: 'lights-accessories',
     packageName: 'Lights / Accessories Fitment',
     steps: [
