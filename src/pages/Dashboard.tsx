@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
 import { WORKERS } from '../data/workers'
+import { jobFrontThumb } from '../lib/jobThumbnail'
 import { canManage, jobProgress, type Job, type Worker } from '../types'
 
 type Props = {
@@ -24,21 +25,29 @@ function workerNames(ids: string[]) {
 
 function JobRow({ job }: { job: Job }) {
   const pct = jobProgress(job)
+  const thumb = jobFrontThumb(job)
   return (
     <Link to={`/job/${job.id}`} className="job-card">
-      <div className="job-card-top">
-        <span className="plate">{job.registration}</span>
-        <span className="progress-pct">{pct}%</span>
+      {thumb ? (
+        <img src={thumb} alt="" className="job-card-thumb" />
+      ) : (
+        <div className="job-card-thumb job-card-thumb-empty" aria-hidden />
+      )}
+      <div className="job-card-body">
+        <div className="job-card-top">
+          <span className="plate">{job.registration}</span>
+          <span className="progress-pct">{pct}%</span>
+        </div>
+        <span className="muted">
+          {job.year} {job.make} {job.model}
+        </span>
+        <span className="muted">{job.packageName}</span>
+        <span className="muted">Assigned: {workerNames(job.assignedWorkerIds)}</span>
+        <div className="progress-track" aria-hidden>
+          <div className="progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <span className={statusClass(job.status)}>{job.status}</span>
       </div>
-      <span className="muted">
-        {job.year} {job.make} {job.model}
-      </span>
-      <span className="muted">{job.packageName}</span>
-      <span className="muted">Assigned: {workerNames(job.assignedWorkerIds)}</span>
-      <div className="progress-track" aria-hidden>
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className={statusClass(job.status)}>{job.status}</span>
     </Link>
   )
 }

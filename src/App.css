@@ -459,11 +459,26 @@
   background: rgba(255, 255, 255, 0.035);
 }
 
+.dash-row-thumb {
+  width: 3.25rem;
+  min-width: 3.25rem;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dash-row-thumb-empty {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .dash-row-main {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
+  flex: 1;
 }
 
 .dash-row-main strong {
@@ -1245,8 +1260,9 @@
 
 .job-card {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.7rem;
   min-height: 0;
   padding: 0.7rem 0.75rem;
   background: transparent;
@@ -1255,6 +1271,29 @@
 
 .job-card:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+
+.job-card-thumb {
+  width: 4.5rem;
+  min-width: 4.5rem;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  align-self: center;
+}
+
+.job-card-thumb-empty {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.job-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .job-card-top {
@@ -1269,6 +1308,7 @@
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  word-break: break-all;
 }
 
 .plate.huge {

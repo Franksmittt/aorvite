@@ -228,4 +228,49 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
       ...FINAL_RELEASE,
     ],
   },
+  {
+    id: 'dmax-mcc-leaf-winch',
+    packageName: 'MCC Bumper · Extra Leaf · Runva Winch · Tow · Rubberise',
+    steps: [
+      { id: 'dmx-1', stepOrder: 1, taskName: 'Book-in walkaround photos (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
+
+      // --- Leaf springs first to complete ---
+      { id: 'dmx-leaf-1', stepOrder: 10, taskName: 'Rear wheels off — photos', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 2 },
+      { id: 'dmx-leaf-2', stepOrder: 11, taskName: 'Rear leaf packs out — photo of mounts / U-bolts / hardware bagged', requiresPhoto: true, skippable: false },
+      { id: 'dmx-leaf-3', stepOrder: 12, taskName: 'Extra leaf fitted both sides — pack stacked correctly', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 2 },
+      { id: 'dmx-leaf-4', stepOrder: 13, taskName: 'Leaf packs refitted — U-bolts / centre bolts torqued; photo both sides', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 2 },
+      { id: 'dmx-leaf-5', stepOrder: 14, taskName: 'Rear wheels on — wheel nuts snugged (final torque after alignment)', requiresPhoto: false, skippable: false },
+
+      // --- Front strip (research: D-Max grille + bumper) ---
+      { id: 'dmx-strip-1', stepOrder: 20, taskName: 'Grille off — top plastic clips + Phillips under ISUZU badge; retain fasteners', requiresPhoto: true, skippable: false },
+      { id: 'dmx-strip-2', stepOrder: 21, taskName: 'Bumper off — wheel-arch clips/screws, lower 10mm screws/nuts, underbody clips; unplug fog/sensor looms', requiresPhoto: true, skippable: false },
+      { id: 'dmx-strip-3', stepOrder: 22, taskName: 'Skid plate / crash beam / bumper supports removed as required for MCC — bag & label OEM bolts', requiresPhoto: true, skippable: false },
+
+      // --- MCC + Runva + lights ---
+      { id: 'dmx-mcc-1', stepOrder: 30, taskName: 'MCC chassis mounts / brackets fitted and torqued', requiresPhoto: true, skippable: false },
+      { id: 'dmx-mcc-2', stepOrder: 31, taskName: 'Runva winch mounted to MCC / winch plate — bolts torqued', requiresPhoto: true, skippable: false },
+      { id: 'dmx-mcc-3', stepOrder: 32, taskName: 'Winch power, earth, and control loom routed and connected', requiresPhoto: true, skippable: false },
+      { id: 'dmx-mcc-4', stepOrder: 33, taskName: 'MCC bumper shell trial-fitted — gaps / recovery points checked', requiresPhoto: false, skippable: false },
+      { id: 'dmx-mcc-5', stepOrder: 34, taskName: 'Indicators, fog lights, DRL, and spotlights (brights) fitted to MCC', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 2 },
+      { id: 'dmx-mcc-6', stepOrder: 35, taskName: 'Light looms joined — heat-shrink/solder; routed clear of heat and pinch points', requiresPhoto: true, skippable: false },
+      { id: 'dmx-mcc-7', stepOrder: 36, taskName: 'MCC bumper final fit — mount bolts, washers, nylocks seated', requiresPhoto: true, skippable: false },
+      { id: 'dmx-mcc-8', stepOrder: 37, taskName: 'Function test: indicators, fog, DRL, spotlights, and Runva winch', requiresPhoto: false, skippable: false },
+
+      // --- Tow ball last easy job before alignment ---
+      { id: 'dmx-tow-1', stepOrder: 40, taskName: 'New tow ball fitted and torqued', requiresPhoto: true, skippable: false },
+
+      // --- Rubberising last (external) ---
+      { id: 'dmx-rub-1', stepOrder: 50, taskName: 'Rubberising — external company on premises (not AOR labour); confirm areas done', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 2 },
+
+      // --- Alignment before handoff ---
+      { id: 'dmx-align-1', stepOrder: 60, taskName: 'Wheel alignment completed — alignment report received', requiresPhoto: true, skippable: false },
+      { id: 'dmx-align-2', stepOrder: 61, taskName: 'Wheel nuts re-torqued after alignment', requiresPhoto: false, skippable: false },
+
+      { id: 'dmx-final-walk', stepOrder: 70, taskName: 'Final completed vehicle walkaround (8 angles)', requiresPhoto: true, skippable: false, photoMode: 'walkaround', minPhotos: 8 },
+      ...FINAL_INSPECTION,
+      { id: 'dmx-qa-lights', stepOrder: 107, phase: 'Final Inspection', taskName: 'Re-test MCC lights + Runva winch after full fitment', requiresPhoto: false, skippable: false },
+      { id: 'dmx-qa-tow', stepOrder: 108, phase: 'Final Inspection', taskName: 'Tow ball / tow points checked', requiresPhoto: false, skippable: false },
+      ...FINAL_RELEASE,
+    ],
+  },
 ]
