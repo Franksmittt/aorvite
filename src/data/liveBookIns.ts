@@ -8,35 +8,106 @@ export const PAJERO_JOB_ID = 'live-mp37nsgp-2026-07-20'
 const START_AT = '2026-07-20T06:50:00.000Z'
 /** 20 Jul 2026 09:08 SAST — rear wheels off */
 const WHEELS_OFF_AT = '2026-07-20T07:08:00.000Z'
+/** Work finished — uploading photos retrospectively */
+const DONE_AT = '2026-07-20T10:30:00.000Z'
 
-function buildTasks(packageId: string): JobTask[] {
-  const template = PACKAGE_TEMPLATES.find((p) => p.id === packageId)
-  if (!template) throw new Error(`Unknown package ${packageId}`)
-  return template.steps.map((step, index) => ({
-    id: `${PAJERO_JOB_ID}-t${index + 1}`,
-    taskName: step.taskName,
-    requiresPhoto: step.requiresPhoto,
-    skippable: step.skippable,
-    phase: step.phase ?? 'Work',
-    stepOrder: step.stepOrder,
-    status: 'Pending' as const,
-    ...(step.photoMode ? { photoMode: step.photoMode } : {}),
-    ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
-    ...(step.photoMode === 'walkaround' || step.photoMode === 'multi'
-      ? { photos: [] }
-      : {}),
-  }))
+function multiTask(
+  id: string,
+  taskName: string,
+  stepOrder: number,
+  minPhotos: number,
+  status: JobTask['status'],
+  extra?: Partial<JobTask>,
+): JobTask {
+  return {
+    id,
+    taskName,
+    requiresPhoto: true,
+    skippable: false,
+    phase: 'Work',
+    stepOrder,
+    status,
+    photoMode: 'multi',
+    minPhotos,
+    photos: [],
+    ...extra,
+  }
+}
+
+function walkaroundTask(
+  id: string,
+  taskName: string,
+  stepOrder: number,
+  status: JobTask['status'],
+  extra?: Partial<JobTask>,
+): JobTask {
+  return {
+    id,
+    taskName,
+    requiresPhoto: true,
+    skippable: false,
+    phase: 'Work',
+    stepOrder,
+    status,
+    photoMode: 'walkaround',
+    minPhotos: 8,
+    photos: [],
+    ...extra,
+  }
 }
 
 /**
  * Real workshop book-ins we push with the app when Firestore writes
  * are not available from the agent environment.
  * Matched by stable id / registration — safe to re-run.
+ *
+ * MP37NSGP work is done — checklist is only the photo packs still to upload.
  */
 export function getLiveBookIns(): Job[] {
-  const packageId = 'rear-suspension-trailer-plug'
-  const template = PACKAGE_TEMPLATES.find((p) => p.id === packageId)!
-  const tasks = buildTasks(packageId)
+  const template = PACKAGE_TEMPLATES.find((p) => p.id === 'rear-suspension-trailer-plug')!
+
+  const tasks: JobTask[] = [
+    {
+      id: `${PAJERO_JOB_ID}-v3-brake`,
+      taskName: 'Brake lines and ABS wiring checked for stretch / clearance',
+      requiresPhoto: false,
+      skippable: false,
+      phase: 'Work',
+      stepOrder: 1,
+      status: 'Complete',
+      completedAt: DONE_AT,
+      completedByWorkerId: 'themba',
+    },
+    multiTask(
+      `${PAJERO_JOB_ID}-v3-shocks`,
+      'Shock replacement photos — 4 photos (before wheels back on)',
+      2,
+      4,
+      'Pending',
+    ),
+    multiTask(
+      `${PAJERO_JOB_ID}-v3-plug`,
+      'Trailer plug installed & tested — photos',
+      3,
+      2,
+      'Pending',
+    ),
+    walkaroundTask(
+      `${PAJERO_JOB_ID}-v3-final`,
+      'Final completed vehicle walkaround (8 angles)',
+      4,
+      'Pending',
+    ),
+    {
+      id: `${PAJERO_JOB_ID}-v3-release`,
+      taskName: 'Manager release: vehicle is safe, clean, and ready for the client',
+      requiresPhoto: false,
+      skippable: false,
+      phase: 'Final Inspection',
+      stepOrder: 199,
+      status: 'Pending',
+    },
+  ]
 
   return [
     {
@@ -52,15 +123,21 @@ export function getLiveBookIns(): Job[] {
       assignedWorkerIds: ['thando', 'themba'],
       notes: [
         {
+          id: `${PAJERO_JOB_ID}-note-4`,
+          workerId: 'themba',
+          text: 'Vehicle complete. Upload now: (1) 4 shock photos before wheels on, (2) trailer plug installed & tested photos, (3) final 8-angle walkaround. Then Jaco releases.',
+          createdAt: DONE_AT,
+        },
+        {
           id: `${PAJERO_JOB_ID}-note-3`,
           workerId: 'themba',
-          text: 'Shocks only — no springs. Each rear shock: top bolt + bottom bolt.',
+          text: 'Shocks only — no springs. Each rear shock: top bolt + bottom bolt. Trailer plug tested OK.',
           createdAt: WHEELS_OFF_AT,
         },
         {
           id: `${PAJERO_JOB_ID}-note-2`,
           workerId: 'themba',
-          text: '09h08 — Rear wheels off. Upload 2 wheel photos, then 2 left + 2 right suspension photos, then shock swap (top + bottom bolt each side).',
+          text: '09h08 — Rear wheels off.',
           createdAt: WHEELS_OFF_AT,
         },
         {
@@ -71,6 +148,13 @@ export function getLiveBookIns(): Job[] {
         },
       ],
       auditLog: [
+        {
+          id: `${PAJERO_JOB_ID}-audit-5`,
+          at: DONE_AT,
+          workerId: 'themba',
+          action: 'note_added',
+          summary: 'Work complete — open for retrospective photo upload',
+        },
         {
           id: `${PAJERO_JOB_ID}-audit-4`,
           at: WHEELS_OFF_AT,
@@ -101,8 +185,10 @@ export function getLiveBookIns(): Job[] {
         },
       ],
       tasks,
-      timerStartedAt: START_AT,
-      timerSecondsAccumulated: 0,
+      timerStartedAt: undefined,
+      timerSecondsAccumulated: Math.floor(
+        (new Date(DONE_AT).getTime() - new Date(START_AT).getTime()) / 1000,
+      ),
     },
   ]
 }
