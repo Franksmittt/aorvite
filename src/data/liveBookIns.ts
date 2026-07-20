@@ -6,6 +6,8 @@ export const PAJERO_JOB_ID = 'live-mp37nsgp-2026-07-20'
 
 /** 20 Jul 2026 08:50 SAST */
 const START_AT = '2026-07-20T06:50:00.000Z'
+/** 20 Jul 2026 09:08 SAST — rear wheels off */
+const WHEELS_OFF_AT = '2026-07-20T07:08:00.000Z'
 
 function buildTasks(packageId: string): JobTask[] {
   const template = PACKAGE_TEMPLATES.find((p) => p.id === packageId)
@@ -32,6 +34,7 @@ function buildTasks(packageId: string): JobTask[] {
 export function getLiveBookIns(): Job[] {
   const packageId = 'rear-suspension-trailer-plug'
   const template = PACKAGE_TEMPLATES.find((p) => p.id === packageId)!
+  const tasks = buildTasks(packageId)
 
   return [
     {
@@ -47,6 +50,12 @@ export function getLiveBookIns(): Job[] {
       assignedWorkerIds: ['thando', 'themba'],
       notes: [
         {
+          id: `${PAJERO_JOB_ID}-note-2`,
+          workerId: 'themba',
+          text: '09h08 — Rear wheels off. Progress photos taken on the floor (WhatsApp).',
+          createdAt: WHEELS_OFF_AT,
+        },
+        {
           id: `${PAJERO_JOB_ID}-note-1`,
           workerId: 'thando',
           text: 'Booked in by Thando. Work: rear suspension + trailer plug. Start 08h50. Thando and Themba on this car.',
@@ -54,6 +63,13 @@ export function getLiveBookIns(): Job[] {
         },
       ],
       auditLog: [
+        {
+          id: `${PAJERO_JOB_ID}-audit-3`,
+          at: WHEELS_OFF_AT,
+          workerId: 'themba',
+          action: 'note_added',
+          summary: '09h08 — Rear wheels off',
+        },
         {
           id: `${PAJERO_JOB_ID}-audit-1`,
           at: START_AT,
@@ -69,7 +85,7 @@ export function getLiveBookIns(): Job[] {
           summary: 'Work timer started',
         },
       ],
-      tasks: buildTasks(packageId),
+      tasks,
       timerStartedAt: START_AT,
       timerSecondsAccumulated: 0,
     },
