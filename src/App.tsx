@@ -34,13 +34,10 @@ import {
 import './App.css'
 
 /**
- * Cloud pull was rehydrating old demo jobs from Firestore.
- * Keep uploads/sync for NEW work, but do not pull the full jobs list until
- * the workshop has a clean slate for real testing.
- *
- * Orders MUST pull — Yogs on another phone needs Jaco’s requests.
+ * Jobs and orders both pull from Firestore so every phone sees live book-ins.
+ * Demo docs are still purged on boot (see purgeDemoDataFromCloud).
  */
-const CLOUD_JOB_PULL_ENABLED = false
+const CLOUD_JOB_PULL_ENABLED = true
 const CLOUD_ORDER_PULL_ENABLED = true
 
 // Drop every old aor-* local key when generation bumps (runs before first paint).
