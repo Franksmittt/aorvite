@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PhotoCapture } from '../components/PhotoCapture'
+import { MultiPhotoCapture } from '../components/MultiPhotoCapture'
 import { WalkaroundCapture } from '../components/WalkaroundCapture'
 import { WALKAROUND_MIN_PHOTOS } from '../data/walkaround'
 import { WORKERS } from '../data/workers'
 import {
   addJobNote,
+  addMultiPhoto,
   addWalkaroundPhoto,
   completeTask,
+  deleteMultiPhoto,
   deleteWalkaroundPhoto,
   firebaseEnabled,
   getJob,
   skipTask,
+  submitMultiPhotos,
   submitWalkaround,
   toggleJobTimer,
 } from '../lib/store'
@@ -219,6 +223,62 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
     }
   }
 
+  async function onMultiCapture(taskId: string, dataUrl: string) {
+    setError(null)
+    setWalkaroundBusy(true)
+    try {
+      const uploaded = await uploadJobPhoto({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        dataUrl,
+      })
+      const photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
+      const updated = addMultiPhoto({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        photoDataUrl: photoUrl ? dataUrl : uploaded.url,
+        photoUrl,
+        storagePath: uploaded.storagePath,
+      })
+      if (updated) refresh(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save photo')
+    } finally {
+      setWalkaroundBusy(false)
+    }
+  }
+
+  function onMultiDelete(taskId: string, photoId: string) {
+    setError(null)
+    try {
+      const updated = deleteMultiPhoto({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        photoId,
+      })
+      if (updated) refresh(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete photo')
+    }
+  }
+
+  function onMultiSubmit(taskId: string) {
+    setError(null)
+    try {
+      const updated = submitMultiPhotos({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+      })
+      if (updated) refresh(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not submit photos')
+    }
+  }
+
   function markSkipped(taskId: string) {
     setError(null)
     try {
@@ -413,6 +473,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                 const skipped = task.status === 'Skipped'
                 const resolved = isTaskResolved(task.status)
                 const isWalkaround = task.photoMode === 'walkaround'
+                const isMulti = task.photoMode === 'multi'
                 const locked = Boolean(task.photosLockedAt) || done
 
                 return (
@@ -440,7 +501,12 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                             photos required
                           </p>
                         )}
-                        {!resolved && task.requiresPhoto && !isWalkaround && (
+                        {!resolved && isMulti && (
+                          <p className="muted">
+                            Minimum {task.minPhotos ?? 2} photos required
+                          </p>
+                        )}
+                        {!resolved && task.requiresPhoto && !isWalkaround && !isMulti && (
                           <p className="muted">Photo required</p>
                         )}
                         {!resolved && task.skippable && (
@@ -451,7 +517,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                             {task.skipNote ?? 'Not on this vehicle'}
                           </p>
                         )}
-                        {done && isWalkaround && task.photosLockedAt && (
+                        {done && (isWalkaround || isMulti) && task.photosLockedAt && (
                           <p className="muted">
                             Locked {new Date(task.photosLockedAt).toLocaleString()}
                           </p>
@@ -475,7 +541,21 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     )}
 
-                    {isNext && !resolved && !isWalkaround && (
+                    {isMulti && (isNext || done) && (
+                      <div className="task-actions">
+                        <MultiPhotoCapture
+                          photos={task.photos ?? []}
+                          locked={locked}
+                          busy={walkaroundBusy}
+                          minPhotos={task.minPhotos ?? 2}
+                          onCapture={(dataUrl) => onMultiCapture(task.id, dataUrl)}
+                          onDelete={(photoId) => onMultiDelete(task.id, photoId)}
+                          onSubmit={() => onMultiSubmit(task.id)}
+                        />
+                      </div>
+                    )}
+
+                    {isNext && !resolved && !isWalkaround && !isMulti && (
                       <div className="task-actions">
                         {task.requiresPhoto ? (
                           pendingPhotoTaskId === task.id ? (

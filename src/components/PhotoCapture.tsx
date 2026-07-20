@@ -35,7 +35,6 @@ export function PhotoCapture({ onCaptured, label = 'Take photo' }: Props) {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="sr-only"
         onChange={handleChange}
       />

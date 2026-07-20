@@ -17,7 +17,7 @@ export type Worker = {
   canLogin?: boolean
 }
 
-export type PhotoMode = 'single' | 'walkaround'
+export type PhotoMode = 'single' | 'walkaround' | 'multi'
 
 export type WalkaroundSlotId =
   | 'front'

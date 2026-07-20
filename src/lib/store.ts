@@ -102,23 +102,48 @@ function applyLiveBookInProgress(local: Job, live: Job): Job {
   audit.sort((a, b) => (a.at < b.at ? 1 : -1))
   next.auditLog = audit
 
-  for (const liveTask of live.tasks) {
-    const idx = next.tasks.findIndex((t) => t.id === liveTask.id)
-    if (idx === -1) continue
-    const task = next.tasks[idx]
-    if (
-      liveTask.status === 'Complete' &&
-      task.status !== 'Complete' &&
-      task.status !== 'Skipped'
-    ) {
-      next.tasks[idx] = {
-        ...task,
-        status: 'Complete',
-        completedAt: liveTask.completedAt ?? task.completedAt,
-        completedByWorkerId:
-          liveTask.completedByWorkerId ?? task.completedByWorkerId,
+  // Rebuild checklist from live seed when steps change; keep any on-device media.
+  const localById = new Map(next.tasks.map((t) => [t.id, t]))
+  const liveIds = live.tasks.map((t) => t.id).join('|')
+  const localIds = next.tasks.map((t) => t.id).join('|')
+  if (liveIds !== localIds) {
+    next.tasks = live.tasks.map((liveTask) => {
+      const prev = localById.get(liveTask.id)
+      if (!prev) return { ...liveTask }
+      return {
+        ...liveTask,
+        status:
+          prev.status === 'Complete' || prev.status === 'Skipped'
+            ? prev.status
+            : liveTask.status,
+        completedAt: prev.completedAt ?? liveTask.completedAt,
+        completedByWorkerId: prev.completedByWorkerId ?? liveTask.completedByWorkerId,
+        skipNote: prev.skipNote ?? liveTask.skipNote,
+        media: prev.media ?? liveTask.media,
+        photos: prev.photos ?? liveTask.photos,
+        photosLockedAt: prev.photosLockedAt ?? liveTask.photosLockedAt,
       }
-      changed = true
+    })
+    changed = true
+  } else {
+    for (const liveTask of live.tasks) {
+      const idx = next.tasks.findIndex((t) => t.id === liveTask.id)
+      if (idx === -1) continue
+      const task = next.tasks[idx]
+      if (
+        liveTask.status === 'Complete' &&
+        task.status !== 'Complete' &&
+        task.status !== 'Skipped'
+      ) {
+        next.tasks[idx] = {
+          ...task,
+          status: 'Complete',
+          completedAt: liveTask.completedAt ?? task.completedAt,
+          completedByWorkerId:
+            liveTask.completedByWorkerId ?? task.completedByWorkerId,
+        }
+        changed = true
+      }
     }
   }
 
@@ -430,7 +455,9 @@ export function createJob(input: {
     status: 'Pending',
     ...(step.photoMode ? { photoMode: step.photoMode } : {}),
     ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
-    ...(step.photoMode === 'walkaround' ? { photos: [] } : {}),
+    ...(step.photoMode === 'walkaround' || step.photoMode === 'multi'
+      ? { photos: [] }
+      : {}),
   }))
 
   const job: Job = {
@@ -518,8 +545,8 @@ export function completeTask(opts: {
     throw new Error('Only owner / manager can complete final inspection')
   }
 
-  if (task.photoMode === 'walkaround') {
-    throw new Error('Use walkaround submit for this step')
+  if (task.photoMode === 'walkaround' || task.photoMode === 'multi') {
+    throw new Error('Use photo submit for this step')
   }
 
   if (task.requiresPhoto && !opts.photoDataUrl && !opts.photoUrl) {
@@ -713,6 +740,154 @@ export function submitWalkaround(opts: {
     workerId: opts.workerId,
     action: 'walkaround_submitted',
     summary: `Submitted walkaround (${photos.length} photos) — locked`,
+    taskId: task.id,
+    taskName: task.taskName,
+  })
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'task_completed',
+    summary: `Completed “${task.taskName}”`,
+    taskId: task.id,
+    taskName: task.taskName,
+  })
+
+  if (!job.assignedWorkerIds.includes(opts.workerId)) {
+    job.assignedWorkerIds = [...job.assignedWorkerIds, opts.workerId]
+  }
+
+  return finalizeTaskProgress(job)
+}
+
+export function addMultiPhoto(opts: {
+  jobId: string
+  taskId: string
+  workerId: string
+  photoDataUrl?: string
+  photoUrl?: string
+  storagePath?: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task) return null
+  if (task.photoMode !== 'multi') {
+    throw new Error('Not a multi-photo step')
+  }
+  if (task.photosLockedAt || task.status === 'Complete') {
+    throw new Error('Photos already submitted — locked')
+  }
+  if (!opts.photoDataUrl && !opts.photoUrl) {
+    throw new Error('Photo required')
+  }
+
+  task.photos = task.photos ?? []
+  const index = task.photos.length + 1
+  const slotLabel = `Photo ${index}`
+  const photo: TaskPhoto = {
+    id: uid(),
+    slotLabel,
+    capturedAt: new Date().toISOString(),
+    capturedByWorkerId: opts.workerId,
+    ...(opts.photoDataUrl ? { dataUrl: opts.photoDataUrl } : {}),
+    ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
+    ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
+  }
+  task.photos.push(photo)
+
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'photo_captured',
+    summary: `Captured ${slotLabel} · ${new Date(photo.capturedAt).toLocaleString()}`,
+    taskId: task.id,
+    taskName: task.taskName,
+    photoId: photo.id,
+    slotLabel,
+  })
+
+  if (!job.assignedWorkerIds.includes(opts.workerId)) {
+    job.assignedWorkerIds = [...job.assignedWorkerIds, opts.workerId]
+  }
+  if (job.status === 'Coming') job.status = 'In Workshop'
+  updateJob(job)
+  vibrate()
+  return job
+}
+
+export function deleteMultiPhoto(opts: {
+  jobId: string
+  taskId: string
+  workerId: string
+  photoId: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task) return null
+  if (task.photoMode !== 'multi') {
+    throw new Error('Not a multi-photo step')
+  }
+  if (task.photosLockedAt || task.status === 'Complete') {
+    throw new Error('Photos already submitted — cannot delete')
+  }
+
+  const photo = (task.photos ?? []).find((p) => p.id === opts.photoId)
+  if (!photo) throw new Error('Photo not found')
+
+  task.photos = (task.photos ?? []).filter((p) => p.id !== opts.photoId)
+  // Re-number labels for clarity
+  task.photos = task.photos.map((p, i) => ({ ...p, slotLabel: `Photo ${i + 1}` }))
+
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'photo_deleted',
+    summary: `Deleted photo (taken ${new Date(photo.capturedAt).toLocaleString()})`,
+    taskId: task.id,
+    taskName: task.taskName,
+    photoId: photo.id,
+    slotLabel: photo.slotLabel,
+  })
+
+  updateJob(job)
+  vibrate()
+  return job
+}
+
+export function submitMultiPhotos(opts: {
+  jobId: string
+  taskId: string
+  workerId: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task) return null
+  if (task.photoMode !== 'multi') {
+    throw new Error('Not a multi-photo step')
+  }
+  if (task.status === 'Complete' || task.photosLockedAt) {
+    throw new Error('Photos already submitted — locked')
+  }
+
+  const min = task.minPhotos ?? 2
+  const photos = task.photos ?? []
+  if (photos.length < min) {
+    throw new Error(`Need ${min} photos — ${photos.length} taken`)
+  }
+
+  const now = new Date().toISOString()
+  task.status = 'Complete'
+  task.completedAt = now
+  task.completedByWorkerId = opts.workerId
+  task.photosLockedAt = now
+  task.skipNote = undefined
+
+  appendAudit(job, {
+    workerId: opts.workerId,
+    action: 'walkaround_submitted',
+    summary: `Submitted ${photos.length} photos — locked`,
     taskId: task.id,
     taskName: task.taskName,
   })
