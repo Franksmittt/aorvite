@@ -22,7 +22,9 @@ function buildTasks(packageId: string): JobTask[] {
     status: 'Pending' as const,
     ...(step.photoMode ? { photoMode: step.photoMode } : {}),
     ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
-    ...(step.photoMode === 'walkaround' ? { photos: [] } : {}),
+    ...(step.photoMode === 'walkaround' || step.photoMode === 'multi'
+      ? { photos: [] }
+      : {}),
   }))
 }
 
@@ -52,7 +54,7 @@ export function getLiveBookIns(): Job[] {
         {
           id: `${PAJERO_JOB_ID}-note-2`,
           workerId: 'themba',
-          text: '09h08 — Rear wheels off. Progress photos taken on the floor (WhatsApp).',
+          text: '09h08 — Rear wheels off. Upload 2 wheel photos on the “Remove rear wheels” step, then 2 left + 2 right suspension photos before springs/shocks removal.',
           createdAt: WHEELS_OFF_AT,
         },
         {
