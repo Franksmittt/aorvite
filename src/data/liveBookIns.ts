@@ -52,19 +52,32 @@ export function getLiveBookIns(): Job[] {
       assignedWorkerIds: ['thando', 'themba'],
       notes: [
         {
+          id: `${PAJERO_JOB_ID}-note-3`,
+          workerId: 'themba',
+          text: 'Shocks only — no springs. Each rear shock: top bolt + bottom bolt.',
+          createdAt: WHEELS_OFF_AT,
+        },
+        {
           id: `${PAJERO_JOB_ID}-note-2`,
           workerId: 'themba',
-          text: '09h08 — Rear wheels off. Upload 2 wheel photos on the “Remove rear wheels” step, then 2 left + 2 right suspension photos before springs/shocks removal.',
+          text: '09h08 — Rear wheels off. Upload 2 wheel photos, then 2 left + 2 right suspension photos, then shock swap (top + bottom bolt each side).',
           createdAt: WHEELS_OFF_AT,
         },
         {
           id: `${PAJERO_JOB_ID}-note-1`,
           workerId: 'thando',
-          text: 'Booked in by Thando. Work: rear suspension + trailer plug. Start 08h50. Thando and Themba on this car.',
+          text: 'Booked in by Thando. Work: rear shocks + trailer plug. Start 08h50. Thando and Themba on this car.',
           createdAt: START_AT,
         },
       ],
       auditLog: [
+        {
+          id: `${PAJERO_JOB_ID}-audit-4`,
+          at: WHEELS_OFF_AT,
+          workerId: 'themba',
+          action: 'note_added',
+          summary: 'Shocks only — top + bottom bolt each side; no springs',
+        },
         {
           id: `${PAJERO_JOB_ID}-audit-3`,
           at: WHEELS_OFF_AT,
@@ -77,7 +90,7 @@ export function getLiveBookIns(): Job[] {
           at: START_AT,
           workerId: 'thando',
           action: 'note_added',
-          summary: 'Booked in · rear suspension + trailer plug · start 08h50',
+          summary: 'Booked in · rear shocks + trailer plug · start 08h50',
         },
         {
           id: `${PAJERO_JOB_ID}-audit-2`,
