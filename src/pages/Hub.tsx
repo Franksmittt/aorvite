@@ -16,6 +16,7 @@ import {
   type PartsOrder,
   type Worker,
 } from '../types'
+import { jobFrontThumb } from '../lib/jobThumbnail'
 
 type Props = {
   worker: Worker
@@ -172,9 +173,15 @@ export function Hub({ worker, jobs, cloudPullEnabled }: Props) {
               <ul className="dash-list">
                 {floorJobs.map((job) => {
                   const pct = jobProgress(job)
+                  const thumb = jobFrontThumb(job)
                   return (
                     <li key={job.id}>
                       <Link to={`/job/${job.id}`} className="dash-row">
+                        {thumb ? (
+                          <img src={thumb} alt="" className="dash-row-thumb" />
+                        ) : (
+                          <div className="dash-row-thumb dash-row-thumb-empty" aria-hidden />
+                        )}
                         <div className="dash-row-main">
                           <strong>{job.registration}</strong>
                           <span>
