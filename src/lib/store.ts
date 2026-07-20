@@ -58,28 +58,107 @@ export function wipeLocalJobsStorage() {
   for (const key of keys) localStorage.removeItem(key)
 }
 
-/** Merge agent/live book-ins that are not yet on this device. */
+/** Apply agent progress onto an existing live job without wiping on-device photos. */
+function applyLiveBookInProgress(local: Job, live: Job): Job {
+  let changed = false
+  const next: Job = { ...local, tasks: local.tasks.map((t) => ({ ...t })) }
+
+  if (live.status && live.status !== next.status) {
+    // Don't pull a live job backward once it has moved further on-device.
+    const order = ['Coming', 'In Workshop', 'Final Inspection', 'Gone Out'] as const
+    if (order.indexOf(live.status) > order.indexOf(next.status)) {
+      next.status = live.status
+      changed = true
+    }
+  }
+
+  if (live.assignedWorkerIds?.length) {
+    const merged = Array.from(
+      new Set([...(next.assignedWorkerIds ?? []), ...live.assignedWorkerIds]),
+    )
+    if (merged.length !== (next.assignedWorkerIds ?? []).length) {
+      next.assignedWorkerIds = merged
+      changed = true
+    }
+  }
+
+  const notes = [...(next.notes ?? [])]
+  for (const note of live.notes ?? []) {
+    if (!notes.some((n) => n.id === note.id)) {
+      notes.push(note)
+      changed = true
+    }
+  }
+  notes.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+  next.notes = notes
+
+  const audit = [...(next.auditLog ?? [])]
+  for (const event of live.auditLog ?? []) {
+    if (!audit.some((e) => e.id === event.id)) {
+      audit.push(event)
+      changed = true
+    }
+  }
+  audit.sort((a, b) => (a.at < b.at ? 1 : -1))
+  next.auditLog = audit
+
+  for (const liveTask of live.tasks) {
+    const idx = next.tasks.findIndex((t) => t.id === liveTask.id)
+    if (idx === -1) continue
+    const task = next.tasks[idx]
+    if (
+      liveTask.status === 'Complete' &&
+      task.status !== 'Complete' &&
+      task.status !== 'Skipped'
+    ) {
+      next.tasks[idx] = {
+        ...task,
+        status: 'Complete',
+        completedAt: liveTask.completedAt ?? task.completedAt,
+        completedByWorkerId:
+          liveTask.completedByWorkerId ?? task.completedByWorkerId,
+      }
+      changed = true
+    }
+  }
+
+  return changed ? next : local
+}
+
+/** Merge agent/live book-ins and apply progress updates onto this device. */
 function ensureLiveBookIns(jobs: Job[]): Job[] {
   const live = getLiveBookIns()
   if (live.length === 0) return jobs
 
   let changed = false
-  const byId = new Map(jobs.map((j) => [j.id, j]))
-  const byReg = new Map(jobs.map((j) => [j.registration.toUpperCase(), j]))
+  let nextJobs = [...jobs]
+  const byId = new Map(nextJobs.map((j) => [j.id, j]))
+  const byReg = new Map(nextJobs.map((j) => [j.registration.toUpperCase(), j]))
 
   for (const bookIn of live) {
     const existing =
       byId.get(bookIn.id) ?? byReg.get(bookIn.registration.toUpperCase())
-    if (existing) continue
-    jobs = [bookIn, ...jobs]
-    byId.set(bookIn.id, bookIn)
-    byReg.set(bookIn.registration.toUpperCase(), bookIn)
-    changed = true
-    void syncJobToCloud(bookIn)
+    if (!existing) {
+      nextJobs = [bookIn, ...nextJobs]
+      byId.set(bookIn.id, bookIn)
+      byReg.set(bookIn.registration.toUpperCase(), bookIn)
+      changed = true
+      void syncJobToCloud(bookIn)
+      continue
+    }
+
+    const merged = applyLiveBookInProgress(existing, bookIn)
+    if (merged !== existing) {
+      nextJobs = nextJobs.map((j) => (j.id === existing.id ? merged : j))
+      byId.set(merged.id, merged)
+      byReg.set(merged.registration.toUpperCase(), merged)
+      changed = true
+      void syncJobToCloud(merged)
+    }
   }
 
-  if (changed) saveJobs(jobs)
-  return jobs
+  if (changed) saveJobs(nextJobs)
+  return changed ? nextJobs : jobs
 }
 
 export function loadJobs(): Job[] {
