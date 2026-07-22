@@ -16,6 +16,8 @@ const DMAX_START = '2026-07-20T08:00:00.000Z'
 
 /** Hilux front bumper — 22 Jul 2026 morning SAST */
 const HILUX_START = '2026-07-22T06:30:00.000Z'
+/** Progress update ~ strip bash plate underway */
+const HILUX_STRIP = '2026-07-22T06:58:00.000Z'
 
 function multiTask(
   id: string,
@@ -457,8 +459,14 @@ function hiluxJob(): Job {
       {
         id: `${HILUX_JOB_ID}-note-2`,
         workerId: 'jaco',
-        text: 'Strip order (Hilux): (1) top cover above the grille, (2) 2 covers in front of the wheel arches, (3) bottom bumper screws + wheel-arch clips, (4) when bumper loose — unplug harness (light plug + 1 PDC each side), (5) bumper off on ground. Bag & retain all fasteners. Upload strip photos: wheel-arch covers, harness L/R, bumper on ground x2.',
+        text: 'Strip order (Hilux): (1) top cover above grille, (2) 2 wheel-arch front covers, (3) bottom bumper screws + wheel-arch clips, (4) bumper loose — unplug harness (light plug + 1 PDC each side), (5) bumper off, (6) plastic cover between bash plate and crash bar, (7) steel crash bar + its 2 plastic covers, (8) bash plate off. Bag & retain all fasteners.',
         createdAt: HILUX_START,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-3`,
+        workerId: 'jaco',
+        text: 'Progress: bumper / covers / crash bar strip photos taken. Busy stripping the bash plate now — photo when off, then fully stripped chassis photo.',
+        createdAt: HILUX_STRIP,
       },
     ],
     auditLog: [
@@ -474,10 +482,19 @@ function hiluxJob(): Job {
         at: HILUX_START,
         workerId: 'jaco',
         action: 'note_added',
-        summary: 'Strip steps updated · top cover · wheel-arch covers · harness unplug · bumper off photos',
+        summary: 'Strip steps · bumper / harness / wheel-arch covers',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-3`,
+        at: HILUX_STRIP,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Crash bar + covers steps added · bash plate strip in progress',
       },
     ],
     tasks,
+    timerStartedAt: HILUX_START,
+    timerSecondsAccumulated: 0,
   }
 }
 
