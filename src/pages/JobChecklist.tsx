@@ -9,6 +9,7 @@ import {
   addJobNote,
   addMultiPhoto,
   addWalkaroundPhoto,
+  attachTaskCloudPhoto,
   completeTask,
   deleteMultiPhoto,
   deleteWalkaroundPhoto,
@@ -78,7 +79,6 @@ function photoSrc(photo: { url?: string; dataUrl?: string }) {
 export function JobChecklist({ worker, onJobsChanged }: Props) {
   const { jobId } = useParams()
   const [job, setJob] = useState<Job | null>(() => (jobId ? getJob(jobId) ?? null : null))
-  const [pendingPhotoTaskId, setPendingPhotoTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
   const [walkaroundBusy, setWalkaroundBusy] = useState(false)
@@ -130,34 +130,43 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
   async function markDone(taskId: string, photoDataUrl?: string) {
     setError(null)
     try {
-      let photoUrl: string | undefined
-      let storagePath: string | undefined
-      let localPreview = photoDataUrl
-
-      if (photoDataUrl) {
-        const uploaded = await uploadJobPhoto({
-          jobId: job!.id,
-          taskId,
-          workerId: worker.id,
-          dataUrl: photoDataUrl,
-        })
-        photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
-        storagePath = uploaded.storagePath
-        if (!photoUrl) localPreview = uploaded.url
-      }
-
+      // Save on-device FIRST so gallery picks never look like "nothing happened"
+      // if cloud upload is slow or fails.
       const updated = completeTask({
         jobId: job!.id,
         taskId,
         workerId: worker.id,
-        photoDataUrl: localPreview,
-        photoUrl,
-        storagePath,
+        photoDataUrl,
       })
-      if (updated) refresh(updated)
-      setPendingPhotoTaskId(null)
+      if (!updated) {
+        throw new Error('Could not save on this step — refresh the page and try again')
+      }
+      refresh(updated)
+
+      if (photoDataUrl && firebaseEnabled()) {
+        try {
+          const uploaded = await uploadJobPhoto({
+            jobId: job!.id,
+            taskId,
+            workerId: worker.id,
+            dataUrl: photoDataUrl,
+          })
+          if (uploaded.url.startsWith('http')) {
+            const patched = attachTaskCloudPhoto({
+              jobId: job!.id,
+              taskId,
+              photoUrl: uploaded.url,
+              storagePath: uploaded.storagePath,
+            })
+            if (patched) refresh(patched)
+          }
+        } catch {
+          setError('Photo saved on this phone. Cloud upload failed — keep the local copy.')
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not complete task')
+      throw e
     }
   }
 
@@ -288,7 +297,6 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
         workerId: worker.id,
       })
       if (updated) refresh(updated)
-      setPendingPhotoTaskId(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not skip task')
     }
@@ -568,24 +576,12 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                     {!resolved && !isWalkaround && !isMulti && (task.requiresPhoto || isNext || task.skippable) && (
                       <div className="task-actions">
                         {task.requiresPhoto ? (
-                          pendingPhotoTaskId === task.id ? (
-                            <PhotoCapture
-                              label="Open camera"
-                              onCaptured={(dataUrl) => {
-                                void markDone(task.id, dataUrl)
-                              }}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-camera"
-                              onClick={() => setPendingPhotoTaskId(task.id)}
-                            >
-                              {firebaseEnabled()
-                                ? 'Take photo (uploads to cloud)'
-                                : 'Take photo'}
-                            </button>
-                          )
+                          <PhotoCapture
+                            label="Take / choose photo"
+                            onCaptured={async (dataUrl) => {
+                              await markDone(task.id, dataUrl)
+                            }}
+                          />
                         ) : isNext ? (
                           <button
                             type="button"
