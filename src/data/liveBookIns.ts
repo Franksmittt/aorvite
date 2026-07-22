@@ -517,13 +517,13 @@ function hiluxJob(): Job {
       {
         id: `${HILUX_JOB_ID}-note-9`,
         workerId: 'jaco',
-        text: 'Bumper lights (4) come prebuilt in the bumper — not mounted on the job. Outer L + outer R = DRL/park/indicator combo each side; centre 2 = fogs. Wire by piggyback into the back of the vehicle lights (no extra automotive plugs). Photos: all 4 prebuilt lights, L join, R join, fog joins, heat-shrink joins, then lit function test (DRL/park, indicators/hazards, fogs). Sensors after lights.',
+        text: 'Bumper lights come prebuilt — no confirm/mount step. Vehicle OEM lights: remove L+R (photo each) → piggyback wire combo + fogs → heat-shrink joins → refit L+R fastened/tightened (photo each) → lit function test. Sensors after lights.',
         createdAt: HILUX_LIGHTS,
       },
       {
         id: `${HILUX_JOB_ID}-note-10`,
         workerId: 'jaco',
-        text: 'OEM vehicle L + R lights must come off for piggyback access — photo each light removed. After splices, refit both lights fully fastened/tightened — photo each. Do not skip refit photos.',
+        text: 'OEM vehicle L + R lights must come off for piggyback access — photo each light removed. After splices, refit both lights fully fastened/tightened — photo each. Do not skip refit photos. Prebuilt bumper-lights confirm step removed.',
         createdAt: HILUX_OEM_LIGHTS,
       },
     ],
