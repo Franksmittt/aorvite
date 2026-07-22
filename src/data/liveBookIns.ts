@@ -26,6 +26,8 @@ const HILUX_CHECKLIST_FIX = '2026-07-22T07:13:00.000Z'
 const HILUX_UPLOAD_FIX = '2026-07-22T07:18:00.000Z'
 /** Sensor seating photos + front PDC handoff test + photo-preserve merge */
 const HILUX_SENSOR_FIX = '2026-07-22T07:50:00.000Z'
+/** Chassis mount brackets on (snug only) before sensors / lights */
+const HILUX_BRACKETS = '2026-07-22T07:53:00.000Z'
 
 function multiTask(
   id: string,
@@ -502,6 +504,12 @@ function hiluxJob(): Job {
         text: 'Parking sensors step reopened for 4 photos (L top, L side, R top, R side). Do not mark done without photos. Final inspection includes mandatory front PDC function test before client handoff. Uploaded strip photos must be preserved across checklist updates.',
         createdAt: HILUX_SENSOR_FIX,
       },
+      {
+        id: `${HILUX_JOB_ID}-note-8`,
+        workerId: 'jaco',
+        text: 'Chassis bumper-mount brackets are on before sensors. Bolts snug only for now — bumper gets trial-fitted and gaps set first, then final torque. Upload the 3 bracket photos on step 12. Lights wiring starting next.',
+        createdAt: HILUX_BRACKETS,
+      },
     ],
     auditLog: [
       {
@@ -552,6 +560,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: 'Sensor seating 4-photo step + front PDC handoff test · photo preserve fix',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-8`,
+        at: HILUX_BRACKETS,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Chassis mount brackets step added (snug only · 3 photos)',
       },
     ],
     tasks,
