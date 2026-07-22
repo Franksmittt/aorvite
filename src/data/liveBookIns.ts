@@ -457,7 +457,7 @@ function hiluxJob(): Job {
       {
         id: `${HILUX_JOB_ID}-note-2`,
         workerId: 'jaco',
-        text: 'Strip order (Hilux): (1) top cover above the grille first, (2) screws from bottom of bumper + clips from both wheel arches, then bumper/grille off. Bag & retain all fasteners. Book-in walkaround photos uploaded to start.',
+        text: 'Strip order (Hilux): (1) top cover above the grille, (2) 2 covers in front of the wheel arches, (3) bottom bumper screws + wheel-arch clips, (4) when bumper loose — unplug harness (light plug + 1 PDC each side), (5) bumper off on ground. Bag & retain all fasteners. Upload strip photos: wheel-arch covers, harness L/R, bumper on ground x2.',
         createdAt: HILUX_START,
       },
     ],
@@ -474,7 +474,7 @@ function hiluxJob(): Job {
         at: HILUX_START,
         workerId: 'jaco',
         action: 'note_added',
-        summary: 'Strip steps updated · top cover first · then bottom screws + wheel-arch clips',
+        summary: 'Strip steps updated · top cover · wheel-arch covers · harness unplug · bumper off photos',
       },
     ],
     tasks,
