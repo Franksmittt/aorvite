@@ -752,6 +752,27 @@ export function completeTask(opts: {
   return finalizeTaskProgress(job)
 }
 
+/** Attach cloud URL to an already-completed single-photo step without wiping local preview. */
+export function attachTaskCloudPhoto(opts: {
+  jobId: string
+  taskId: string
+  photoUrl: string
+  storagePath?: string
+}): Job | null {
+  const job = getJob(opts.jobId)
+  if (!job) return null
+  const task = job.tasks.find((t) => t.id === opts.taskId)
+  if (!task?.media) return null
+
+  task.media = {
+    ...task.media,
+    url: opts.photoUrl,
+    ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
+  }
+  updateJob(job)
+  return job
+}
+
 export function addWalkaroundPhoto(opts: {
   jobId: string
   taskId: string
