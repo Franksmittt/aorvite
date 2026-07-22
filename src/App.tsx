@@ -8,6 +8,8 @@ import {
 import { isFirebaseConfigured } from './lib/firebase'
 import { ensureAppGeneration } from './lib/appGeneration'
 import { reconcileOrdersWithCloud } from './lib/inventoryStore'
+import { LOCAL_FIRST_MODE } from './lib/localMode'
+import { hydratePhotoPreviewsFromIdb } from './lib/photoPreviewCache'
 import {
   loadJobs,
   loadSession,
@@ -34,11 +36,10 @@ import {
 import './App.css'
 
 /**
- * Jobs and orders both pull from Firestore so every phone sees live book-ins.
- * Demo docs are still purged on boot (see purgeDemoDataFromCloud).
+ * Jobs/orders cloud pull. Disabled in LOCAL_FIRST_MODE while Firebase rules are locked.
  */
-const CLOUD_JOB_PULL_ENABLED = true
-const CLOUD_ORDER_PULL_ENABLED = true
+const CLOUD_JOB_PULL_ENABLED = !LOCAL_FIRST_MODE
+const CLOUD_ORDER_PULL_ENABLED = !LOCAL_FIRST_MODE
 
 // Drop every old aor-* local key when generation bumps (runs before first paint).
 ensureAppGeneration()
@@ -73,6 +74,15 @@ function AppRoutes() {
   }, [])
 
   useEffect(() => {
+    void (async () => {
+      const count = await hydratePhotoPreviewsFromIdb()
+      if (count > 0) console.info('Restored on-device photos', count)
+      setJobs(loadJobs())
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (LOCAL_FIRST_MODE) return
     // Always try to delete known demo docs; never rehydrate them into the UI.
     void (async () => {
       if (!isFirebaseConfigured()) return

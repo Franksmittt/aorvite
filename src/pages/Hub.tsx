@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
 import { ROLE_LABELS } from '../data/workers'
 import { firebaseStatusLabel, isFirebaseConfigured } from '../lib/firebase'
+import { LOCAL_FIRST_MODE, localFirstStatusLabel } from '../lib/localMode'
 import {
   loadOrders,
   ORDERS_CHANGED_EVENT,
@@ -109,10 +110,16 @@ export function Hub({ worker, jobs, cloudPullEnabled }: Props) {
             ? 'Nothing on the board yet — book a vehicle or raise a parts request to start.'
             : '.'}
         </p>
-        <p className={`dash-sync ${isFirebaseConfigured() ? 'firebase-on' : 'firebase-off'}`}>
-          {firebaseStatusLabel()}
-          {!cloudPullEnabled ? ' · local jobs only' : ''}
+        <p className={`dash-sync ${LOCAL_FIRST_MODE ? 'firebase-off' : isFirebaseConfigured() ? 'firebase-on' : 'firebase-off'}`}>
+          {LOCAL_FIRST_MODE
+            ? localFirstStatusLabel()
+            : `${firebaseStatusLabel()}${!cloudPullEnabled ? ' · local jobs only' : ''}`}
         </p>
+        {LOCAL_FIRST_MODE ? (
+          <p className="muted" style={{ marginTop: '0.5rem' }}>
+            Finish the job on this phone. Photos are stored on-device. Turn Firebase sync back on later when rules are fixed.
+          </p>
+        ) : null}
       </section>
 
       {workshop ? (
