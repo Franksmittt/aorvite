@@ -28,6 +28,8 @@ const HILUX_UPLOAD_FIX = '2026-07-22T07:18:00.000Z'
 const HILUX_SENSOR_FIX = '2026-07-22T07:50:00.000Z'
 /** Chassis mount brackets on (snug only) before sensors / lights */
 const HILUX_BRACKETS = '2026-07-22T07:53:00.000Z'
+/** 4 bumper lights piggyback wiring steps */
+const HILUX_LIGHTS = '2026-07-22T07:58:00.000Z'
 
 function multiTask(
   id: string,
@@ -510,6 +512,12 @@ function hiluxJob(): Job {
         text: 'Chassis bumper-mount brackets are on before sensors. Bolts snug only for now — bumper gets trial-fitted and gaps set first, then final torque. Upload the 3 bracket photos on step 12. Lights wiring starting next.',
         createdAt: HILUX_BRACKETS,
       },
+      {
+        id: `${HILUX_JOB_ID}-note-9`,
+        workerId: 'jaco',
+        text: 'Bumper lights (4): outer L + outer R = DRL/park/indicator combo each side; centre 2 = fogs. Wire by piggyback into the back of the vehicle lights (no extra automotive plugs). Photos: all 4 mounted, L join, R join, fog joins, heat-shrink joins, then lit function test (DRL/park, indicators/hazards, fogs). Sensors after lights.',
+        createdAt: HILUX_LIGHTS,
+      },
     ],
     auditLog: [
       {
@@ -567,6 +575,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: 'Chassis mount brackets step added (snug only · 3 photos)',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-9`,
+        at: HILUX_LIGHTS,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: '4-light piggyback wiring + function-test photo steps added',
       },
     ],
     tasks,
