@@ -24,6 +24,8 @@ const HILUX_UNPACK = '2026-07-22T07:02:00.000Z'
 const HILUX_CHECKLIST_FIX = '2026-07-22T07:13:00.000Z'
 /** Force phones onto numbered strip steps + photo upload on every pending step */
 const HILUX_UPLOAD_FIX = '2026-07-22T07:18:00.000Z'
+/** Sensor seating photos + front PDC handoff test + photo-preserve merge */
+const HILUX_SENSOR_FIX = '2026-07-22T07:50:00.000Z'
 
 function multiTask(
   id: string,
@@ -429,8 +431,8 @@ function dmaxJob(): Job {
 
 function hiluxJob(): Job {
   const template = PACKAGE_TEMPLATES.find((p) => p.id === 'front-bumper')!
-  // Keep every strip/photo step Pending so workshop can upload images as they go.
-  // v3 ids force a checklist rebuild after the photo-upload UI fix.
+  // Keep stable v3 task ids — never bump versions just to force a rebuild
+  // (ID bumps used to drop uploaded photos). Store merge now remaps by template key.
   const tasks: JobTask[] = template.steps.map((step) => ({
     id: `${HILUX_JOB_ID}-v3-${step.id}`,
     taskName: step.taskName,
@@ -494,6 +496,12 @@ function hiluxJob(): Job {
         text: 'Photo upload open on EVERY pending strip step (not only the next one). Hard-refresh the app after deploy — steps 1–11 should all show Take photo / multi upload.',
         createdAt: HILUX_UPLOAD_FIX,
       },
+      {
+        id: `${HILUX_JOB_ID}-note-7`,
+        workerId: 'jaco',
+        text: 'Parking sensors step reopened for 4 photos (L top, L side, R top, R side). Do not mark done without photos. Final inspection includes mandatory front PDC function test before client handoff. Uploaded strip photos must be preserved across checklist updates.',
+        createdAt: HILUX_SENSOR_FIX,
+      },
     ],
     auditLog: [
       {
@@ -537,6 +545,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: 'Photo upload enabled on all pending strip steps',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-7`,
+        at: HILUX_SENSOR_FIX,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Sensor seating 4-photo step + front PDC handoff test · photo preserve fix',
       },
     ],
     tasks,
