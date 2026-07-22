@@ -30,6 +30,8 @@ const HILUX_SENSOR_FIX = '2026-07-22T07:50:00.000Z'
 const HILUX_BRACKETS = '2026-07-22T07:53:00.000Z'
 /** 4 bumper lights piggyback wiring steps */
 const HILUX_LIGHTS = '2026-07-22T07:58:00.000Z'
+/** OEM vehicle lights removed/refitted for piggyback access */
+const HILUX_OEM_LIGHTS = '2026-07-22T08:10:00.000Z'
 
 function multiTask(
   id: string,
@@ -518,6 +520,12 @@ function hiluxJob(): Job {
         text: 'Bumper lights (4) come prebuilt in the bumper — not mounted on the job. Outer L + outer R = DRL/park/indicator combo each side; centre 2 = fogs. Wire by piggyback into the back of the vehicle lights (no extra automotive plugs). Photos: all 4 prebuilt lights, L join, R join, fog joins, heat-shrink joins, then lit function test (DRL/park, indicators/hazards, fogs). Sensors after lights.',
         createdAt: HILUX_LIGHTS,
       },
+      {
+        id: `${HILUX_JOB_ID}-note-10`,
+        workerId: 'jaco',
+        text: 'OEM vehicle L + R lights must come off for piggyback access — photo each light removed. After splices, refit both lights fully fastened/tightened — photo each. Do not skip refit photos.',
+        createdAt: HILUX_OEM_LIGHTS,
+      },
     ],
     auditLog: [
       {
@@ -582,6 +590,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: '4-light piggyback wiring + function-test photo steps added',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-10`,
+        at: HILUX_OEM_LIGHTS,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'OEM L/R light remove + refit-tightened photo steps added',
       },
     ],
     tasks,
