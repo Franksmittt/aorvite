@@ -20,6 +20,7 @@ import {
 } from '../data/demoData'
 import type { Job, PartsOrder, Stocktake, Supplier } from '../types'
 import { getDb, isFirebaseConfigured } from './firebase'
+import { LOCAL_FIRST_MODE } from './localMode'
 
 const JOBS = 'jobs'
 const ORDERS = 'orders'
@@ -73,6 +74,7 @@ function jobForCloud(job: Job): Job {
 }
 
 export async function syncJobToCloud(job: Job): Promise<void> {
+  if (LOCAL_FIRST_MODE) return
   if (!isFirebaseConfigured()) return
   if (isDemoJob(job)) return
   const db = requireDb()
@@ -89,6 +91,7 @@ export async function fetchJobsFromCloud(): Promise<Job[] | null> {
 }
 
 export async function syncOrderToCloud(order: PartsOrder): Promise<void> {
+  if (LOCAL_FIRST_MODE) return
   if (!isFirebaseConfigured()) return
   if (isDemoOrder(order)) return
   const db = requireDb()

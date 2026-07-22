@@ -17,6 +17,7 @@ import type {
 import { canFinalInspect, isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
+import { LOCAL_FIRST_MODE } from './localMode'
 import {
   cachePhotoPreview,
   getCachedPhotoPreview,
@@ -1212,6 +1213,8 @@ export function submitMultiPhotos(opts: {
 }
 
 export function firebaseEnabled(): boolean {
+  // While Firebase rules are locked, force on-device photo/job workflow.
+  if (LOCAL_FIRST_MODE) return false
   return isFirebaseConfigured()
 }
 
