@@ -25,6 +25,7 @@ npm run dev
 | --- | --- | --- |
 | Jaco | Company Owner | 1111 |
 | Marius | Staff | 2222 |
+| Marius 2 | Staff (probation) | 7777 |
 | Jovan | Staff | 3333 |
 | Themba | Staff | 4444 |
 | Thando | Staff | 5555 |
