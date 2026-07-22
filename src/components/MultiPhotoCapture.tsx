@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import type { TaskPhoto } from '../types'
+import { resolveTaskPhotoSrc } from '../lib/store'
 import { PhotoCapture } from './PhotoCapture'
 
 type Props = {
+  jobId: string
+  taskId: string
   photos: TaskPhoto[]
   locked: boolean
   busy?: boolean
@@ -13,11 +16,9 @@ type Props = {
   onSubmit: () => void
 }
 
-function photoSrc(photo: TaskPhoto) {
-  return photo.url || photo.dataUrl || ''
-}
-
 export function MultiPhotoCapture({
+  jobId,
+  taskId,
   photos,
   locked,
   busy = false,
@@ -46,7 +47,7 @@ export function MultiPhotoCapture({
 
       <div className="multi-photo-grid">
         {photos.map((photo, index) => {
-          const src = photoSrc(photo)
+          const src = resolveTaskPhotoSrc(jobId, taskId, photo)
           return (
             <div key={photo.id} className="walkaround-slot filled">
               <p className="walkaround-slot-label">Photo {index + 1}</p>
@@ -78,8 +79,8 @@ export function MultiPhotoCapture({
             {adding ? (
               <PhotoCapture
                 label="Take / choose photo"
-                onCaptured={(dataUrl) => {
-                  void onCapture(dataUrl)
+                onCaptured={async (dataUrl) => {
+                  await onCapture(dataUrl)
                   setAdding(false)
                 }}
               />

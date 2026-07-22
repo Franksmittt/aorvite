@@ -17,6 +17,11 @@ import type {
 import { canFinalInspect, isTaskResolved } from '../types'
 import { syncJobToCloud } from './firestoreSync'
 import { isFirebaseConfigured } from './firebase'
+import {
+  cachePhotoPreview,
+  getCachedPhotoPreview,
+  photoPreviewKey,
+} from './photoPreviewCache'
 
 const JOBS_KEY = 'aor-jobs-v5'
 const SESSION_KEY = 'aor-session'
@@ -249,6 +254,16 @@ export function loadJobs(): Job[] {
     }
     let migrated = false
 
+    // Free localStorage quota: strip any legacy inline dataUrls on load.
+    const hadInlinePhotos = jobs.some((job) =>
+      job.tasks.some(
+        (task) =>
+          Boolean(task.media?.dataUrl) ||
+          (task.photos?.some((photo) => Boolean(photo.dataUrl)) ?? false),
+      ),
+    )
+    if (hadInlinePhotos) migrated = true
+
     for (const job of jobs) {
       if (!job.assignedWorkerIds) {
         job.assignedWorkerIds = []
@@ -316,7 +331,118 @@ export function loadJobs(): Job[] {
 }
 
 export function saveJobs(jobs: Job[]) {
-  localStorage.setItem(JOBS_KEY, JSON.stringify(jobs))
+  // Cache any in-memory dataUrls, then persist metadata only — full JPEGs blow
+  // past the ~5MB localStorage quota and break photo capture.
+  for (const job of jobs) {
+    for (const task of job.tasks) {
+      if (task.media?.dataUrl) {
+        cachePhotoPreview(
+          photoPreviewKey({ jobId: job.id, taskId: task.id }),
+          task.media.dataUrl,
+        )
+      }
+      for (const photo of task.photos ?? []) {
+        if (photo.dataUrl) {
+          cachePhotoPreview(
+            photoPreviewKey({ jobId: job.id, taskId: task.id, photoId: photo.id }),
+            photo.dataUrl,
+          )
+        }
+      }
+    }
+  }
+
+  const persist = (compactAudit: boolean) => {
+    const payload = JSON.stringify(jobsForLocalStorage(jobs, { compactAudit }))
+    localStorage.setItem(JOBS_KEY, payload)
+  }
+
+  try {
+    persist(false)
+  } catch (err) {
+    if (!isQuotaExceeded(err)) throw err
+    try {
+      persist(true)
+    } catch (err2) {
+      if (!isQuotaExceeded(err2)) throw err2
+      // Last resort: drop non-active jobs' photo metadata arrays of empty photos
+      const slim = jobs.map((job) =>
+        job.status === 'Gone Out'
+          ? {
+              ...job,
+              auditLog: (job.auditLog ?? []).slice(0, 20),
+              notes: (job.notes ?? []).slice(0, 10),
+            }
+          : job,
+      )
+      localStorage.setItem(
+        JOBS_KEY,
+        JSON.stringify(jobsForLocalStorage(slim, { compactAudit: true })),
+      )
+    }
+  }
+}
+
+function isQuotaExceeded(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === 'QuotaExceededError' ||
+      err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      err.code === 22)
+  )
+}
+
+/** Persist jobs without base64 photo payloads. */
+function jobsForLocalStorage(
+  jobs: Job[],
+  opts?: { compactAudit?: boolean },
+): Job[] {
+  return jobs.map((job) => ({
+    ...job,
+    auditLog: opts?.compactAudit
+      ? (job.auditLog ?? []).slice(0, 40)
+      : job.auditLog,
+    tasks: job.tasks.map((task) => {
+      const next: JobTask = { ...task }
+      if (next.media) {
+        const { dataUrl: _d, ...meta } = next.media
+        next.media = meta
+      }
+      if (next.photos?.length) {
+        next.photos = next.photos.map((photo) => {
+          const { dataUrl: _d, ...meta } = photo
+          return meta
+        })
+      }
+      return next
+    }),
+  }))
+}
+
+/** Resolve display src: cloud URL, then session cache, then inline dataUrl. */
+export function resolveTaskMediaSrc(
+  jobId: string,
+  task: JobTask,
+): string {
+  if (task.media?.url) return task.media.url
+  const cached = getCachedPhotoPreview(
+    photoPreviewKey({ jobId, taskId: task.id }),
+  )
+  if (cached) return cached
+  return task.media?.dataUrl || ''
+}
+
+export function resolveTaskPhotoSrc(
+  jobId: string,
+  taskId: string,
+  photo: TaskPhoto,
+): string {
+  if (photo.url) return photo.url
+  const cached = getCachedPhotoPreview(
+    photoPreviewKey({ jobId, taskId, photoId: photo.id }),
+  )
+  if (cached) return cached
+  return photo.dataUrl || ''
 }
 
 function taskStatusRank(status: JobTask['status']): number {

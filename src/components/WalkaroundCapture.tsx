@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { WALKAROUND_SLOTS } from '../data/walkaround'
 import type { TaskPhoto, WalkaroundSlotId } from '../types'
+import { resolveTaskPhotoSrc } from '../lib/store'
 import { PhotoCapture } from './PhotoCapture'
 
 type Props = {
+  jobId: string
+  taskId: string
   photos: TaskPhoto[]
   locked: boolean
   busy?: boolean
@@ -13,11 +16,9 @@ type Props = {
   onSubmit: () => void
 }
 
-function photoSrc(photo: TaskPhoto) {
-  return photo.url || photo.dataUrl || ''
-}
-
 export function WalkaroundCapture({
+  jobId,
+  taskId,
   photos,
   locked,
   busy = false,
@@ -50,7 +51,7 @@ export function WalkaroundCapture({
       <div className="walkaround-grid">
         {WALKAROUND_SLOTS.map((slot) => {
           const photo = photoForSlot(slot.id)
-          const src = photo ? photoSrc(photo) : ''
+          const src = photo ? resolveTaskPhotoSrc(jobId, taskId, photo) : ''
           const isActive = activeSlot === slot.id
 
           return (
@@ -101,12 +102,10 @@ export function WalkaroundCapture({
               {!locked && isActive && (
                 <div className="walkaround-capture-panel">
                   <PhotoCapture
-                    label={`Camera · ${slot.label}`}
-                    onCaptured={(dataUrl) => {
-                      void (async () => {
-                        await onCapture(slot.id, dataUrl)
-                        setActiveSlot(null)
-                      })()
+                    label={`Take / choose · ${slot.label}`}
+                    onCaptured={async (dataUrl) => {
+                      await onCapture(slot.id, dataUrl)
+                      setActiveSlot(null)
                     }}
                   />
                   <button
