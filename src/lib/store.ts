@@ -160,11 +160,15 @@ function applyLiveBookInProgress(local: Job, live: Job): Job {
         taskChanged = true
       }
 
-      // Reopen "done" steps that now need photos the workshop still has to upload.
+      // Never reopen a step that was actually completed on-device.
+      // (Stripped dataUrls used to look "empty" and wipe prior photos.)
       if (
         liveTask.requiresPhoto &&
         !taskHasAnyPhotos(updated) &&
-        (updated.status === 'Complete' || updated.status === 'Skipped')
+        updated.status === 'Complete' &&
+        !updated.completedAt &&
+        !updated.media &&
+        !(updated.photos?.length)
       ) {
         updated = {
           ...updated,
@@ -453,13 +457,21 @@ function taskStatusRank(status: JobTask['status']): number {
 }
 
 function taskHasMedia(task: JobTask): boolean {
-  return Boolean(task.media?.url || task.media?.dataUrl)
+  return Boolean(
+    task.media?.url ||
+      task.media?.dataUrl ||
+      task.media?.storagePath ||
+      // Local-only captures keep metadata id; bytes live in IndexedDB.
+      task.media?.id,
+  )
 }
 
 function taskHasAnyPhotos(task: JobTask): boolean {
+  if (taskHasMedia(task)) return true
   return (
-    taskHasMedia(task) ||
-    (task.photos?.some((p) => Boolean(p.url || p.dataUrl || p.storagePath)) ?? false)
+    task.photos?.some((p) =>
+      Boolean(p.url || p.dataUrl || p.storagePath || p.id),
+    ) ?? false
   )
 }
 
@@ -532,11 +544,14 @@ function carryTaskProgress(liveTask: JobTask, prev?: JobTask): JobTask {
     photos,
   } as JobTask)
 
-  // Never keep "Complete" if the live step now requires photos we don't have.
+  // Only reopen empty "Complete" shells — never wipe real on-device captures.
   const mustReopenForPhotos =
     liveTask.requiresPhoto &&
     !hasPhotos &&
-    (prev.status === 'Complete' || prev.status === 'Skipped')
+    prev.status === 'Complete' &&
+    !prev.completedAt &&
+    !prev.media &&
+    !(prev.photos?.length)
 
   const keepResolved =
     !mustReopenForPhotos &&
@@ -769,14 +784,60 @@ export function createJob(input: {
 }
 
 export function getJob(jobId: string): Job | undefined {
-  return loadJobs().find((j) => j.id === jobId)
+  const job = loadJobs().find((j) => j.id === jobId)
+  return job ? hydrateJobMediaFromCache(job) : undefined
+}
+
+/** Put IndexedDB/session previews back onto the job object for UI rendering. */
+function hydrateJobMediaFromCache(job: Job): Job {
+  return {
+    ...job,
+    tasks: job.tasks.map((task) => {
+      let next = task
+      if (task.media && !task.media.url && !task.media.dataUrl) {
+        const cached = getCachedPhotoPreview(
+          photoPreviewKey({ jobId: job.id, taskId: task.id }),
+        )
+        if (cached) {
+          next = { ...next, media: { ...task.media, dataUrl: cached } }
+        }
+      }
+      if (next.photos?.length) {
+        const photos = next.photos.map((photo) => {
+          if (photo.url || photo.dataUrl) return photo
+          const cached = getCachedPhotoPreview(
+            photoPreviewKey({
+              jobId: job.id,
+              taskId: task.id,
+              photoId: photo.id,
+            }),
+          )
+          return cached ? { ...photo, dataUrl: cached } : photo
+        })
+        next = { ...next, photos }
+      }
+      return next
+    }),
+  }
 }
 
 export function updateJob(job: Job) {
-  const jobs = loadJobs()
+  // Read stored jobs without re-running live-seed reopen logic mid-save.
+  const raw = localStorage.getItem(JOBS_KEY)
+  let jobs: Job[] = []
+  if (raw) {
+    try {
+      jobs = stripDemoJobs(JSON.parse(raw) as Job[])
+    } catch {
+      jobs = []
+    }
+  }
   const idx = jobs.findIndex((j) => j.id === job.id)
-  if (idx === -1) return
-  jobs[idx] = job
+  if (idx === -1) {
+    jobs = [job, ...jobs]
+  } else {
+    jobs[idx] = job
+  }
   saveJobs(jobs)
   void syncJobToCloud(job)
 }
@@ -845,14 +906,18 @@ export function completeTask(opts: {
   if (opts.photoDataUrl || opts.photoUrl) {
     // Never write `undefined` fields — Firestore rejects them and sync fails.
     const mediaId = uid()
+    const localKey = photoPreviewKey({ jobId: opts.jobId, taskId: opts.taskId })
+    if (opts.photoDataUrl) {
+      cachePhotoPreview(localKey, opts.photoDataUrl)
+    }
     task.media = {
       id: mediaId,
       capturedAt: new Date().toISOString(),
-      // Keep local preview so other logins on this device always see the photo,
-      // even if cloud pull is delayed. Prefer cloud URL when rendering.
+      // Keep local preview in memory; IndexedDB holds durable bytes.
+      // storagePath marks that a real capture exists after dataUrl is stripped.
       ...(opts.photoDataUrl ? { dataUrl: opts.photoDataUrl } : {}),
       ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
-      ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
+      storagePath: opts.storagePath ?? `idb:${localKey}`,
     }
     appendAudit(job, {
       workerId: opts.workerId,
@@ -941,15 +1006,22 @@ export function addWalkaroundPhoto(opts: {
     })
   }
 
+  const photoId = uid()
+  const localKey = photoPreviewKey({
+    jobId: opts.jobId,
+    taskId: opts.taskId,
+    photoId,
+  })
+  if (opts.photoDataUrl) cachePhotoPreview(localKey, opts.photoDataUrl)
   const photo: TaskPhoto = {
-    id: uid(),
+    id: photoId,
     slotId: opts.slotId,
     slotLabel,
     capturedAt: new Date().toISOString(),
     capturedByWorkerId: opts.workerId,
     ...(opts.photoDataUrl ? { dataUrl: opts.photoDataUrl } : {}),
     ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
-    ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
+    storagePath: opts.storagePath ?? `idb:${localKey}`,
   }
   task.photos.push(photo)
 
@@ -1090,14 +1162,21 @@ export function addMultiPhoto(opts: {
   task.photos = task.photos ?? []
   const index = task.photos.length + 1
   const slotLabel = `Photo ${index}`
+  const photoId = uid()
+  const localKey = photoPreviewKey({
+    jobId: opts.jobId,
+    taskId: opts.taskId,
+    photoId,
+  })
+  if (opts.photoDataUrl) cachePhotoPreview(localKey, opts.photoDataUrl)
   const photo: TaskPhoto = {
-    id: uid(),
+    id: photoId,
     slotLabel,
     capturedAt: new Date().toISOString(),
     capturedByWorkerId: opts.workerId,
     ...(opts.photoDataUrl ? { dataUrl: opts.photoDataUrl } : {}),
     ...(opts.photoUrl ? { url: opts.photoUrl } : {}),
-    ...(opts.storagePath ? { storagePath: opts.storagePath } : {}),
+    storagePath: opts.storagePath ?? `idb:${localKey}`,
   }
   task.photos.push(photo)
 

@@ -557,7 +557,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                   Boolean(task.requiresPhoto) &&
                   (isWalkaround || isMulti
                     ? photoCount < minNeeded
-                    : !task.media?.url && !task.media?.dataUrl)
+                    : !mediaSrc(task) && !task.media?.storagePath && !task.media?.id)
                 // Never lock a "done" step that still needs the required photos.
                 const locked =
                   (Boolean(task.photosLockedAt) || done) && !missingRequiredPhotos
