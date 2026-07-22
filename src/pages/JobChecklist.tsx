@@ -525,7 +525,9 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     </div>
 
-                    {isWalkaround && (isNext || done) && (
+                    {/* Allow photo upload on any pending step (not only the next one)
+                        so strip photos already taken can be attached out of order. */}
+                    {isWalkaround && (!resolved || done) && (
                       <div className="task-actions">
                         <WalkaroundCapture
                           photos={task.photos ?? []}
@@ -541,7 +543,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     )}
 
-                    {isMulti && (isNext || done) && (
+                    {isMulti && (!resolved || done) && (
                       <div className="task-actions">
                         <MultiPhotoCapture
                           photos={task.photos ?? []}
@@ -555,7 +557,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     )}
 
-                    {isNext && !resolved && !isWalkaround && !isMulti && (
+                    {!resolved && !isWalkaround && !isMulti && (task.requiresPhoto || isNext || task.skippable) && (
                       <div className="task-actions">
                         {task.requiresPhoto ? (
                           pendingPhotoTaskId === task.id ? (
@@ -576,7 +578,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                                 : 'Take photo'}
                             </button>
                           )
-                        ) : (
+                        ) : isNext ? (
                           <button
                             type="button"
                             className="btn btn-yes"
@@ -584,7 +586,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                           >
                             Done
                           </button>
-                        )}
+                        ) : null}
 
                         {task.skippable && (
                           <button

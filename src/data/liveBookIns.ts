@@ -16,6 +16,14 @@ const DMAX_START = '2026-07-20T08:00:00.000Z'
 
 /** Hilux front bumper — 22 Jul 2026 morning SAST */
 const HILUX_START = '2026-07-22T06:30:00.000Z'
+/** Progress update ~ strip bash plate underway */
+const HILUX_STRIP = '2026-07-22T06:58:00.000Z'
+/** OEM strip done — unpacking new bumper */
+const HILUX_UNPACK = '2026-07-22T07:02:00.000Z'
+/** Checklist rebuilt so strip photo steps are uploadable */
+const HILUX_CHECKLIST_FIX = '2026-07-22T07:13:00.000Z'
+/** Force phones onto numbered strip steps + photo upload on every pending step */
+const HILUX_UPLOAD_FIX = '2026-07-22T07:18:00.000Z'
 
 function multiTask(
   id: string,
@@ -421,8 +429,10 @@ function dmaxJob(): Job {
 
 function hiluxJob(): Job {
   const template = PACKAGE_TEMPLATES.find((p) => p.id === 'front-bumper')!
-  const tasks: JobTask[] = template.steps.map((step, index) => ({
-    id: `${HILUX_JOB_ID}-t${index + 1}`,
+  // Keep every strip/photo step Pending so workshop can upload images as they go.
+  // v3 ids force a checklist rebuild after the photo-upload UI fix.
+  const tasks: JobTask[] = template.steps.map((step) => ({
+    id: `${HILUX_JOB_ID}-v3-${step.id}`,
     taskName: step.taskName,
     requiresPhoto: step.requiresPhoto,
     skippable: step.skippable,
@@ -444,7 +454,7 @@ function hiluxJob(): Job {
     year: '—',
     packageId: template.id,
     packageName: template.packageName,
-    status: 'Coming',
+    status: 'In Workshop',
     intakeDate: HILUX_START,
     assignedWorkerIds: ['marius2'],
     notes: [
@@ -453,6 +463,36 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         text: 'Front bumper fitment. Assigned to Marius 2 (probation start 22 Jul 2026). Confirm year model if needed.',
         createdAt: HILUX_START,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-2`,
+        workerId: 'jaco',
+        text: 'Strip order (Hilux): (1) top cover above grille, (2) 2 wheel-arch front covers, (3) bottom bumper screws + wheel-arch clips, (4) bumper loose — unplug harness (light plug + 1 PDC each side), (5) bumper off, (6) plastic cover between bash plate and crash bar, (7) steel crash bar + its 2 plastic covers, (8) bash plate off. Bag & retain all fasteners.',
+        createdAt: HILUX_START,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-3`,
+        workerId: 'jaco',
+        text: 'Progress: bumper / covers / crash bar strip photos taken. Busy stripping the bash plate now — photo when off, then fully stripped chassis photo.',
+        createdAt: HILUX_STRIP,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-4`,
+        workerId: 'jaco',
+        text: 'OEM strip complete — bash plate off (photo). Stripped views: underneath + front-left + front + front-right. Now unpacking the new bumper from its wrapping.',
+        createdAt: HILUX_UNPACK,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-5`,
+        workerId: 'jaco',
+        text: 'Checklist rebuilt with full Hilux strip photo steps. Upload the photos you already took against each matching step (top cover → wheel-arch covers → bottom screws/clips → harness L/R → bumper on ground → mid cover → crash bar + covers → bash plate → stripped underbody/front L-C-R → unpack new bumper).',
+        createdAt: HILUX_CHECKLIST_FIX,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-6`,
+        workerId: 'jaco',
+        text: 'Photo upload open on EVERY pending strip step (not only the next one). Hard-refresh the app after deploy — steps 1–11 should all show Take photo / multi upload.',
+        createdAt: HILUX_UPLOAD_FIX,
       },
     ],
     auditLog: [
@@ -463,8 +503,45 @@ function hiluxJob(): Job {
         action: 'note_added',
         summary: 'Booked in · LR90CCGP Hilux 2.4 GD-6 · front bumper · Marius 2',
       },
+      {
+        id: `${HILUX_JOB_ID}-audit-2`,
+        at: HILUX_START,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Strip steps · bumper / harness / wheel-arch covers',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-3`,
+        at: HILUX_STRIP,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Crash bar + covers steps added · bash plate strip in progress',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-4`,
+        at: HILUX_UNPACK,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'OEM strip complete · unpacking new bumper',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-5`,
+        at: HILUX_CHECKLIST_FIX,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Strip checklist forced Pending for photo upload',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-6`,
+        at: HILUX_UPLOAD_FIX,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Photo upload enabled on all pending strip steps',
+      },
     ],
     tasks,
+    timerStartedAt: HILUX_START,
+    timerSecondsAccumulated: 0,
   }
 }
 
