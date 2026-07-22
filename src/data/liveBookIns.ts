@@ -515,7 +515,7 @@ function hiluxJob(): Job {
       {
         id: `${HILUX_JOB_ID}-note-9`,
         workerId: 'jaco',
-        text: 'Bumper lights (4): outer L + outer R = DRL/park/indicator combo each side; centre 2 = fogs. Wire by piggyback into the back of the vehicle lights (no extra automotive plugs). Photos: all 4 mounted, L join, R join, fog joins, heat-shrink joins, then lit function test (DRL/park, indicators/hazards, fogs). Sensors after lights.',
+        text: 'Bumper lights (4) come prebuilt in the bumper — not mounted on the job. Outer L + outer R = DRL/park/indicator combo each side; centre 2 = fogs. Wire by piggyback into the back of the vehicle lights (no extra automotive plugs). Photos: all 4 prebuilt lights, L join, R join, fog joins, heat-shrink joins, then lit function test (DRL/park, indicators/hazards, fogs). Sensors after lights.',
         createdAt: HILUX_LIGHTS,
       },
     ],
