@@ -474,7 +474,16 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                 const resolved = isTaskResolved(task.status)
                 const isWalkaround = task.photoMode === 'walkaround'
                 const isMulti = task.photoMode === 'multi'
-                const locked = Boolean(task.photosLockedAt) || done
+                const photoCount = task.photos?.length ?? 0
+                const minNeeded = task.minPhotos ?? (isWalkaround ? 8 : isMulti ? 2 : 0)
+                const missingRequiredPhotos =
+                  Boolean(task.requiresPhoto) &&
+                  (isWalkaround || isMulti
+                    ? photoCount < minNeeded
+                    : !task.media?.url && !task.media?.dataUrl)
+                // Never lock a "done" step that still needs the required photos.
+                const locked =
+                  (Boolean(task.photosLockedAt) || done) && !missingRequiredPhotos
 
                 return (
                   <li
@@ -525,9 +534,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     </div>
 
-                    {/* Allow photo upload on any pending step (not only the next one)
-                        so strip photos already taken can be attached out of order. */}
-                    {isWalkaround && (!resolved || done) && (
+                    {/* Allow photo upload on any pending step, and on "done" steps still missing required photos */}
+                    {isWalkaround && (!resolved || missingRequiredPhotos || done) && (
                       <div className="task-actions">
                         <WalkaroundCapture
                           photos={task.photos ?? []}
@@ -543,7 +551,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                       </div>
                     )}
 
-                    {isMulti && (!resolved || done) && (
+                    {isMulti && (!resolved || missingRequiredPhotos || done) && (
                       <div className="task-actions">
                         <MultiPhotoCapture
                           photos={task.photos ?? []}

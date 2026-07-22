@@ -103,26 +103,15 @@ function applyLiveBookInProgress(local: Job, live: Job): Job {
   next.auditLog = audit
 
   // Rebuild checklist from live seed when steps change; keep any on-device media.
-  const localById = new Map(next.tasks.map((t) => [t.id, t]))
+  // Match previous tasks by id → template key (…-v3-fb-…) → name so ID bumps never wipe photos.
   const liveIds = live.tasks.map((t) => t.id).join('|')
   const localIds = next.tasks.map((t) => t.id).join('|')
   if (liveIds !== localIds) {
+    const usedLocalIds = new Set<string>()
     next.tasks = live.tasks.map((liveTask) => {
-      const prev = localById.get(liveTask.id)
-      if (!prev) return { ...liveTask }
-      return {
-        ...liveTask,
-        status:
-          prev.status === 'Complete' || prev.status === 'Skipped'
-            ? prev.status
-            : liveTask.status,
-        completedAt: prev.completedAt ?? liveTask.completedAt,
-        completedByWorkerId: prev.completedByWorkerId ?? liveTask.completedByWorkerId,
-        skipNote: prev.skipNote ?? liveTask.skipNote,
-        media: prev.media ?? liveTask.media,
-        photos: prev.photos ?? liveTask.photos,
-        photosLockedAt: prev.photosLockedAt ?? liveTask.photosLockedAt,
-      }
+      const prev = findPreviousTask(liveTask, next.tasks, usedLocalIds)
+      if (prev) usedLocalIds.add(prev.id)
+      return carryTaskProgress(liveTask, prev)
     })
     changed = true
   } else {
@@ -165,19 +154,42 @@ function applyLiveBookInProgress(local: Job, live: Job): Job {
         taskChanged = true
       }
 
+      // Reopen "done" steps that now need photos the workshop still has to upload.
       if (
-        liveTask.status === 'Complete' &&
-        task.status !== 'Complete' &&
-        task.status !== 'Skipped'
+        liveTask.requiresPhoto &&
+        !taskHasAnyPhotos(updated) &&
+        (updated.status === 'Complete' || updated.status === 'Skipped')
       ) {
         updated = {
           ...updated,
-          status: 'Complete',
-          completedAt: liveTask.completedAt ?? task.completedAt,
-          completedByWorkerId:
-            liveTask.completedByWorkerId ?? task.completedByWorkerId,
+          status: 'Pending',
+          completedAt: undefined,
+          completedByWorkerId: undefined,
+          skipNote: undefined,
+          photosLockedAt: undefined,
+          ...(liveTask.photoMode === 'walkaround' || liveTask.photoMode === 'multi'
+            ? { photos: updated.photos ?? [] }
+            : {}),
         }
         taskChanged = true
+      }
+
+      if (
+        liveTask.status === 'Complete' &&
+        updated.status !== 'Complete' &&
+        updated.status !== 'Skipped'
+      ) {
+        // Only auto-complete from live seed when photos are already present (or not required).
+        if (!liveTask.requiresPhoto || taskHasAnyPhotos(updated)) {
+          updated = {
+            ...updated,
+            status: 'Complete',
+            completedAt: liveTask.completedAt ?? updated.completedAt,
+            completedByWorkerId:
+              liveTask.completedByWorkerId ?? updated.completedByWorkerId,
+          }
+          taskChanged = true
+        }
       }
 
       if (taskChanged) {
@@ -315,6 +327,108 @@ function taskStatusRank(status: JobTask['status']): number {
 
 function taskHasMedia(task: JobTask): boolean {
   return Boolean(task.media?.url || task.media?.dataUrl)
+}
+
+function taskHasAnyPhotos(task: JobTask): boolean {
+  return (
+    taskHasMedia(task) ||
+    (task.photos?.some((p) => Boolean(p.url || p.dataUrl || p.storagePath)) ?? false)
+  )
+}
+
+/** Stable template step key from live book-in ids like …-v3-fb-strip-1 */
+function taskTemplateKey(taskId: string): string | null {
+  const versioned = taskId.match(/-v\d+-(.+)$/)
+  if (versioned?.[1]) return versioned[1]
+  const bare = taskId.match(/-(fb-[a-z0-9-]+)$/i)
+  return bare?.[1] ?? null
+}
+
+function normalizeTaskName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^\d+\.\s*/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/**
+ * Find the previous local task for a live seed task without relying on exact IDs.
+ * Checklist rebuilds (v2→v3, added steps) must never drop uploaded photos.
+ */
+function findPreviousTask(
+  liveTask: JobTask,
+  localTasks: JobTask[],
+  usedLocalIds: Set<string>,
+): JobTask | undefined {
+  const byId = localTasks.find((t) => t.id === liveTask.id && !usedLocalIds.has(t.id))
+  if (byId) return byId
+
+  const liveKey = taskTemplateKey(liveTask.id)
+  if (liveKey) {
+    const byKey = localTasks.find(
+      (t) => !usedLocalIds.has(t.id) && taskTemplateKey(t.id) === liveKey,
+    )
+    if (byKey) return byKey
+  }
+
+  const liveName = normalizeTaskName(liveTask.taskName)
+  if (!liveName) return undefined
+
+  const exactName = localTasks.find(
+    (t) => !usedLocalIds.has(t.id) && normalizeTaskName(t.taskName) === liveName,
+  )
+  if (exactName) return exactName
+
+  // Soft match: same core phrase after dropping leading numbers / short suffixes
+  return localTasks.find((t) => {
+    if (usedLocalIds.has(t.id)) return false
+    const localName = normalizeTaskName(t.taskName)
+    if (!localName) return false
+    return (
+      localName.includes(liveName) ||
+      liveName.includes(localName) ||
+      (liveName.length > 18 &&
+        localName.includes(liveName.slice(0, Math.min(24, liveName.length))))
+    )
+  })
+}
+
+function carryTaskProgress(liveTask: JobTask, prev?: JobTask): JobTask {
+  if (!prev) return { ...liveTask }
+
+  const photos = mergePhotos(prev.photos, liveTask.photos)
+  const media = mergeTaskMedia(prev.media, liveTask.media)
+  const hasPhotos = taskHasAnyPhotos({
+    ...prev,
+    media,
+    photos,
+  } as JobTask)
+
+  // Never keep "Complete" if the live step now requires photos we don't have.
+  const mustReopenForPhotos =
+    liveTask.requiresPhoto &&
+    !hasPhotos &&
+    (prev.status === 'Complete' || prev.status === 'Skipped')
+
+  const keepResolved =
+    !mustReopenForPhotos &&
+    (prev.status === 'Complete' || prev.status === 'Skipped')
+
+  return {
+    ...liveTask,
+    status: keepResolved ? prev.status : liveTask.status,
+    completedAt: keepResolved ? prev.completedAt ?? liveTask.completedAt : undefined,
+    completedByWorkerId: keepResolved
+      ? prev.completedByWorkerId ?? liveTask.completedByWorkerId
+      : undefined,
+    skipNote: keepResolved ? prev.skipNote ?? liveTask.skipNote : undefined,
+    media: media ?? liveTask.media,
+    photos: photos.length > 0 ? photos : liveTask.photos ?? prev.photos,
+    photosLockedAt: keepResolved
+      ? prev.photosLockedAt ?? liveTask.photosLockedAt
+      : undefined,
+  }
 }
 
 function mergeTaskMedia(
