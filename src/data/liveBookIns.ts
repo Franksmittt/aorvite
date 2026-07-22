@@ -20,19 +20,8 @@ const HILUX_START = '2026-07-22T06:30:00.000Z'
 const HILUX_STRIP = '2026-07-22T06:58:00.000Z'
 /** OEM strip done — unpacking new bumper */
 const HILUX_UNPACK = '2026-07-22T07:02:00.000Z'
-
-const HILUX_STRIP_DONE_IDS = new Set([
-  'fb-1',
-  'fb-strip-1',
-  'fb-strip-covers',
-  'fb-strip-2',
-  'fb-strip-harness',
-  'fb-strip-bumper',
-  'fb-strip-mid-cover',
-  'fb-strip-crashbar',
-  'fb-strip-bash',
-  'fb-2',
-])
+/** Checklist rebuilt so strip photo steps are uploadable */
+const HILUX_CHECKLIST_FIX = '2026-07-22T07:13:00.000Z'
 
 function multiTask(
   id: string,
@@ -438,29 +427,22 @@ function dmaxJob(): Job {
 
 function hiluxJob(): Job {
   const template = PACKAGE_TEMPLATES.find((p) => p.id === 'front-bumper')!
-  const tasks: JobTask[] = template.steps.map((step) => {
-    const done = HILUX_STRIP_DONE_IDS.has(step.id)
-    return {
-      id: `${HILUX_JOB_ID}-${step.id}`,
-      taskName: step.taskName,
-      requiresPhoto: step.requiresPhoto,
-      skippable: step.skippable,
-      phase: step.phase ?? 'Work',
-      stepOrder: step.stepOrder,
-      status: done ? ('Complete' as const) : ('Pending' as const),
-      ...(done
-        ? {
-            completedAt: HILUX_UNPACK,
-            completedByWorkerId: 'marius2',
-          }
-        : {}),
-      ...(step.photoMode ? { photoMode: step.photoMode } : {}),
-      ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
-      ...(step.photoMode === 'walkaround' || step.photoMode === 'multi'
-        ? { photos: [] }
-        : {}),
-    }
-  })
+  // Keep every strip/photo step Pending so workshop can upload images as they go.
+  // v2 ids force a checklist rebuild if an older seed marked steps Complete.
+  const tasks: JobTask[] = template.steps.map((step) => ({
+    id: `${HILUX_JOB_ID}-v2-${step.id}`,
+    taskName: step.taskName,
+    requiresPhoto: step.requiresPhoto,
+    skippable: step.skippable,
+    phase: step.phase ?? 'Work',
+    stepOrder: step.stepOrder,
+    status: 'Pending' as const,
+    ...(step.photoMode ? { photoMode: step.photoMode } : {}),
+    ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
+    ...(step.photoMode === 'walkaround' || step.photoMode === 'multi'
+      ? { photos: [] }
+      : {}),
+  }))
 
   return {
     id: HILUX_JOB_ID,
@@ -498,6 +480,12 @@ function hiluxJob(): Job {
         text: 'OEM strip complete — bash plate off (photo). Stripped views: underneath + front-left + front + front-right. Now unpacking the new bumper from its wrapping.',
         createdAt: HILUX_UNPACK,
       },
+      {
+        id: `${HILUX_JOB_ID}-note-5`,
+        workerId: 'jaco',
+        text: 'Checklist rebuilt with full Hilux strip photo steps. Upload the photos you already took against each matching step (top cover → wheel-arch covers → bottom screws/clips → harness L/R → bumper on ground → mid cover → crash bar + covers → bash plate → stripped underbody/front L-C-R → unpack new bumper).',
+        createdAt: HILUX_CHECKLIST_FIX,
+      },
     ],
     auditLog: [
       {
@@ -527,6 +515,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: 'OEM strip complete · unpacking new bumper',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-5`,
+        at: HILUX_CHECKLIST_FIX,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Strip checklist forced Pending for photo upload',
       },
     ],
     tasks,

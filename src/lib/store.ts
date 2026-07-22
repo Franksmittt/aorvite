@@ -130,18 +130,58 @@ function applyLiveBookInProgress(local: Job, live: Job): Job {
       const idx = next.tasks.findIndex((t) => t.id === liveTask.id)
       if (idx === -1) continue
       const task = next.tasks[idx]
+      let taskChanged = false
+      let updated = { ...task }
+
+      // Keep live seed wording / photo rules in sync without wiping progress.
+      if (task.taskName !== liveTask.taskName) {
+        updated.taskName = liveTask.taskName
+        taskChanged = true
+      }
+      if (task.stepOrder !== liveTask.stepOrder) {
+        updated.stepOrder = liveTask.stepOrder
+        taskChanged = true
+      }
+      if (task.requiresPhoto !== liveTask.requiresPhoto) {
+        updated.requiresPhoto = liveTask.requiresPhoto
+        taskChanged = true
+      }
+      if (task.skippable !== liveTask.skippable) {
+        updated.skippable = liveTask.skippable
+        taskChanged = true
+      }
+      if ((task.photoMode ?? 'single') !== (liveTask.photoMode ?? 'single')) {
+        updated.photoMode = liveTask.photoMode
+        if (
+          (liveTask.photoMode === 'walkaround' || liveTask.photoMode === 'multi') &&
+          !updated.photos
+        ) {
+          updated.photos = []
+        }
+        taskChanged = true
+      }
+      if ((task.minPhotos ?? 0) !== (liveTask.minPhotos ?? 0)) {
+        updated.minPhotos = liveTask.minPhotos
+        taskChanged = true
+      }
+
       if (
         liveTask.status === 'Complete' &&
         task.status !== 'Complete' &&
         task.status !== 'Skipped'
       ) {
-        next.tasks[idx] = {
-          ...task,
+        updated = {
+          ...updated,
           status: 'Complete',
           completedAt: liveTask.completedAt ?? task.completedAt,
           completedByWorkerId:
             liveTask.completedByWorkerId ?? task.completedByWorkerId,
         }
+        taskChanged = true
+      }
+
+      if (taskChanged) {
+        next.tasks[idx] = updated
         changed = true
       }
     }
@@ -151,7 +191,7 @@ function applyLiveBookInProgress(local: Job, live: Job): Job {
 }
 
 /** Merge agent/live book-ins and apply progress updates onto this device. */
-function ensureLiveBookIns(jobs: Job[]): Job[] {
+export function ensureLiveBookIns(jobs: Job[]): Job[] {
   const live = getLiveBookIns()
   if (live.length === 0) return jobs
 
@@ -429,8 +469,12 @@ export function mergeJobsFromCloud(cloudJobs: Job[]): Job[] {
     byId.set(cloudJob.id, local ? mergeJob(local, cloudJob) : cloudJob)
   }
 
-  return stripDemoJobs([...byId.values()]).sort((a, b) =>
-    a.intakeDate < b.intakeDate ? 1 : -1,
+  // Live book-in seeds must win on checklist shape after a cloud pull,
+  // otherwise old task IDs from Firestore hide the current strip steps.
+  return ensureLiveBookIns(
+    stripDemoJobs([...byId.values()]).sort((a, b) =>
+      a.intakeDate < b.intakeDate ? 1 : -1,
+    ),
   )
 }
 
