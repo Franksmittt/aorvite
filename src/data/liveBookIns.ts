@@ -32,6 +32,8 @@ const HILUX_BRACKETS = '2026-07-22T07:53:00.000Z'
 const HILUX_LIGHTS = '2026-07-22T07:58:00.000Z'
 /** OEM vehicle lights removed/refitted for piggyback access */
 const HILUX_OEM_LIGHTS = '2026-07-22T08:10:00.000Z'
+/** Per-side splice photo sequence: before → untaped joints → taped → refit */
+const HILUX_SPLICE_SEQ = '2026-07-22T08:14:00.000Z'
 
 function multiTask(
   id: string,
@@ -517,7 +519,7 @@ function hiluxJob(): Job {
       {
         id: `${HILUX_JOB_ID}-note-9`,
         workerId: 'jaco',
-        text: 'Bumper lights come prebuilt — no confirm/mount step. Vehicle OEM lights: remove L+R (photo each) → piggyback wire combo + fogs → heat-shrink joins → refit L+R fastened/tightened (photo each) → lit function test. Sensors after lights.',
+        text: 'Vehicle OEM lights L then R: remove → photo before splice → splice/join NOT taped yet (photo joints) → tape up (photo) → refit fastened/tightened (photo). Then fogs + lit function test. Sensors after lights.',
         createdAt: HILUX_LIGHTS,
       },
       {
@@ -525,6 +527,12 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         text: 'OEM vehicle L + R lights must come off for piggyback access — photo each light removed. After splices, refit both lights fully fastened/tightened — photo each. Do not skip refit photos. Prebuilt bumper-lights confirm step removed.',
         createdAt: HILUX_OEM_LIGHTS,
+      },
+      {
+        id: `${HILUX_JOB_ID}-note-11`,
+        workerId: 'jaco',
+        text: 'Per side photo sequence locked: (1) light removed (2) before splicing (3) joints spliced but NOT taped (4) taped up (5) light refitted tight. Same for left and right.',
+        createdAt: HILUX_SPLICE_SEQ,
       },
     ],
     auditLog: [
@@ -597,6 +605,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: 'OEM L/R light remove + refit-tightened photo steps added',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-11`,
+        at: HILUX_SPLICE_SEQ,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Per-side splice sequence: before → untaped → taped → refit',
       },
     ],
     tasks,
