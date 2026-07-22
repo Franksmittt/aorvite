@@ -1,5 +1,5 @@
 /** Bump this whenever we need every browser to drop old local/demo state. */
-export const APP_GENERATION = 'r7-2026-07-17'
+export const APP_GENERATION = 'r8-2026-07-22-hilux-strip'
 
 export const APP_GENERATION_KEY = 'aor-app-generation'
 

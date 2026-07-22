@@ -22,6 +22,8 @@ const HILUX_STRIP = '2026-07-22T06:58:00.000Z'
 const HILUX_UNPACK = '2026-07-22T07:02:00.000Z'
 /** Checklist rebuilt so strip photo steps are uploadable */
 const HILUX_CHECKLIST_FIX = '2026-07-22T07:13:00.000Z'
+/** Force phones onto numbered strip steps + photo upload on every pending step */
+const HILUX_UPLOAD_FIX = '2026-07-22T07:18:00.000Z'
 
 function multiTask(
   id: string,
@@ -428,9 +430,9 @@ function dmaxJob(): Job {
 function hiluxJob(): Job {
   const template = PACKAGE_TEMPLATES.find((p) => p.id === 'front-bumper')!
   // Keep every strip/photo step Pending so workshop can upload images as they go.
-  // v2 ids force a checklist rebuild if an older seed marked steps Complete.
+  // v3 ids force a checklist rebuild after the photo-upload UI fix.
   const tasks: JobTask[] = template.steps.map((step) => ({
-    id: `${HILUX_JOB_ID}-v2-${step.id}`,
+    id: `${HILUX_JOB_ID}-v3-${step.id}`,
     taskName: step.taskName,
     requiresPhoto: step.requiresPhoto,
     skippable: step.skippable,
@@ -486,6 +488,12 @@ function hiluxJob(): Job {
         text: 'Checklist rebuilt with full Hilux strip photo steps. Upload the photos you already took against each matching step (top cover → wheel-arch covers → bottom screws/clips → harness L/R → bumper on ground → mid cover → crash bar + covers → bash plate → stripped underbody/front L-C-R → unpack new bumper).',
         createdAt: HILUX_CHECKLIST_FIX,
       },
+      {
+        id: `${HILUX_JOB_ID}-note-6`,
+        workerId: 'jaco',
+        text: 'Photo upload open on EVERY pending strip step (not only the next one). Hard-refresh the app after deploy — steps 1–11 should all show Take photo / multi upload.',
+        createdAt: HILUX_UPLOAD_FIX,
+      },
     ],
     auditLog: [
       {
@@ -522,6 +530,13 @@ function hiluxJob(): Job {
         workerId: 'jaco',
         action: 'note_added',
         summary: 'Strip checklist forced Pending for photo upload',
+      },
+      {
+        id: `${HILUX_JOB_ID}-audit-6`,
+        at: HILUX_UPLOAD_FIX,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Photo upload enabled on all pending strip steps',
       },
     ],
     tasks,
