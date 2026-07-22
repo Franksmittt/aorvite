@@ -9,17 +9,19 @@ import {
   addJobNote,
   addMultiPhoto,
   addWalkaroundPhoto,
-  attachTaskCloudPhoto,
   completeTask,
   deleteMultiPhoto,
   deleteWalkaroundPhoto,
   firebaseEnabled,
   getJob,
+  resolveTaskMediaSrc,
+  resolveTaskPhotoSrc,
   skipTask,
   submitMultiPhotos,
   submitWalkaround,
   toggleJobTimer,
 } from '../lib/store'
+import { cachePhotoPreview, photoPreviewKey } from '../lib/photoPreviewCache'
 import { uploadJobPhoto } from '../lib/uploadPhoto'
 import {
   canFinalInspect,
@@ -70,10 +72,6 @@ function auditLabel(action: AuditAction) {
     default:
       return action
   }
-}
-
-function photoSrc(photo: { url?: string; dataUrl?: string }) {
-  return photo.url || photo.dataUrl || ''
 }
 
 export function JobChecklist({ worker, onJobsChanged }: Props) {
@@ -130,19 +128,15 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
   async function markDone(taskId: string, photoDataUrl?: string) {
     setError(null)
     try {
-      // Save on-device FIRST so gallery picks never look like "nothing happened"
-      // if cloud upload is slow or fails.
-      const updated = completeTask({
-        jobId: job!.id,
-        taskId,
-        workerId: worker.id,
-        photoDataUrl,
-      })
-      if (!updated) {
-        throw new Error('Could not save on this step — refresh the page and try again')
+      if (photoDataUrl) {
+        cachePhotoPreview(
+          photoPreviewKey({ jobId: job!.id, taskId }),
+          photoDataUrl,
+        )
       }
-      refresh(updated)
 
+      let photoUrl: string | undefined
+      let storagePath: string | undefined
       if (photoDataUrl && firebaseEnabled()) {
         try {
           const uploaded = await uploadJobPhoto({
@@ -152,50 +146,96 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
             dataUrl: photoDataUrl,
           })
           if (uploaded.url.startsWith('http')) {
-            const patched = attachTaskCloudPhoto({
-              jobId: job!.id,
-              taskId,
-              photoUrl: uploaded.url,
-              storagePath: uploaded.storagePath,
-            })
-            if (patched) refresh(patched)
+            photoUrl = uploaded.url
+            storagePath = uploaded.storagePath
           }
         } catch {
-          setError('Photo saved on this phone. Cloud upload failed — keep the local copy.')
+          // Storage may also be blocked — keep session preview + local metadata.
         }
       }
+
+      // Keep dataUrl in memory for this session; saveJobs strips it from localStorage.
+      const updated = completeTask({
+        jobId: job!.id,
+        taskId,
+        workerId: worker.id,
+        photoDataUrl,
+        photoUrl,
+        storagePath,
+      })
+      if (!updated) {
+        throw new Error('Could not save on this step — refresh the page and try again')
+      }
+      refresh(updated)
+
+      if (photoDataUrl && firebaseEnabled() && !photoUrl) {
+        setError(
+          'Photo saved on this phone. Cloud upload failed (check Firebase permissions).',
+        )
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not complete task')
+      const message = e instanceof Error ? e.message : 'Could not complete task'
+      if (/quota/i.test(message)) {
+        setError(
+          'Phone storage full for this app. Refresh once — photos are no longer saved as huge files locally.',
+        )
+      } else {
+        setError(message)
+      }
       throw e
     }
   }
 
   function mediaSrc(task: JobTask) {
-    return task.media?.url || task.media?.dataUrl || ''
+    return resolveTaskMediaSrc(job!.id, task)
   }
 
   async function onWalkaroundCapture(taskId: string, slotId: WalkaroundSlotId, dataUrl: string) {
     setError(null)
     setWalkaroundBusy(true)
     try {
-      const uploaded = await uploadJobPhoto({
-        jobId: job!.id,
-        taskId,
-        workerId: worker.id,
-        dataUrl,
-        photoKey: slotId,
-      })
-      const photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
+      let photoUrl: string | undefined
+      let storagePath: string | undefined
+      if (firebaseEnabled()) {
+        try {
+          const uploaded = await uploadJobPhoto({
+            jobId: job!.id,
+            taskId,
+            workerId: worker.id,
+            dataUrl,
+            photoKey: slotId,
+          })
+          if (uploaded.url.startsWith('http')) {
+            photoUrl = uploaded.url
+            storagePath = uploaded.storagePath
+          }
+        } catch {
+          /* keep session preview */
+        }
+      }
+
       const updated = addWalkaroundPhoto({
         jobId: job!.id,
         taskId,
         workerId: worker.id,
         slotId,
-        photoDataUrl: photoUrl ? dataUrl : uploaded.url,
+        photoDataUrl: dataUrl,
         photoUrl,
-        storagePath: uploaded.storagePath,
+        storagePath,
       })
+      const saved = updated?.tasks
+        .find((t) => t.id === taskId)
+        ?.photos?.find((p) => p.slotId === slotId)
+      if (saved) {
+        cachePhotoPreview(
+          photoPreviewKey({ jobId: job!.id, taskId, photoId: saved.id }),
+          dataUrl,
+        )
+      }
       if (updated) refresh(updated)
+      if (firebaseEnabled() && !photoUrl) {
+        setError('Photo saved on this phone. Cloud upload failed (check Firebase permissions).')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save photo')
     } finally {
@@ -236,22 +276,51 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
     setError(null)
     setWalkaroundBusy(true)
     try {
-      const uploaded = await uploadJobPhoto({
-        jobId: job!.id,
-        taskId,
-        workerId: worker.id,
+      const tempId = crypto.randomUUID()
+      cachePhotoPreview(
+        photoPreviewKey({ jobId: job!.id, taskId, photoId: tempId }),
         dataUrl,
-      })
-      const photoUrl = uploaded.url.startsWith('http') ? uploaded.url : undefined
+      )
+
+      let photoUrl: string | undefined
+      let storagePath: string | undefined
+      if (firebaseEnabled()) {
+        try {
+          const uploaded = await uploadJobPhoto({
+            jobId: job!.id,
+            taskId,
+            workerId: worker.id,
+            dataUrl,
+          })
+          if (uploaded.url.startsWith('http')) {
+            photoUrl = uploaded.url
+            storagePath = uploaded.storagePath
+          }
+        } catch {
+          /* keep session preview */
+        }
+      }
+
       const updated = addMultiPhoto({
         jobId: job!.id,
         taskId,
         workerId: worker.id,
-        photoDataUrl: photoUrl ? dataUrl : uploaded.url,
+        photoDataUrl: dataUrl,
         photoUrl,
-        storagePath: uploaded.storagePath,
+        storagePath,
       })
+      // Re-cache under the real photo id created by addMultiPhoto
+      const saved = updated?.tasks.find((t) => t.id === taskId)?.photos?.at(-1)
+      if (saved?.dataUrl || dataUrl) {
+        cachePhotoPreview(
+          photoPreviewKey({ jobId: job!.id, taskId, photoId: saved?.id ?? tempId }),
+          dataUrl,
+        )
+      }
       if (updated) refresh(updated)
+      if (firebaseEnabled() && !photoUrl) {
+        setError('Photo saved on this phone. Cloud upload failed (check Firebase permissions).')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save photo')
     } finally {
@@ -444,7 +513,7 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                 {task.photoMode === 'walkaround' && (task.photos?.length ?? 0) > 0 ? (
                   <div className="walkaround-review-grid">
                     {task.photos!.map((photo) => {
-                      const src = photoSrc(photo)
+                      const src = resolveTaskPhotoSrc(job.id, task.id, photo)
                       if (!src) return null
                       return (
                         <figure key={photo.id} className="walkaround-review-item">
@@ -546,6 +615,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                     {isWalkaround && (!resolved || missingRequiredPhotos || done) && (
                       <div className="task-actions">
                         <WalkaroundCapture
+                          jobId={job.id}
+                          taskId={task.id}
                           photos={task.photos ?? []}
                           locked={locked}
                           busy={walkaroundBusy}
@@ -562,6 +633,8 @@ export function JobChecklist({ worker, onJobsChanged }: Props) {
                     {isMulti && (!resolved || missingRequiredPhotos || done) && (
                       <div className="task-actions">
                         <MultiPhotoCapture
+                          jobId={job.id}
+                          taskId={task.id}
                           photos={task.photos ?? []}
                           locked={locked}
                           busy={walkaroundBusy}
