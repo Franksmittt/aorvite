@@ -3,6 +3,8 @@ import type { Worker } from '../types'
 export const WORKERS: Worker[] = [
   { id: 'jaco', fullName: 'Jaco', role: 'Owner', pin: '1111' },
   { id: 'marius', fullName: 'Marius', role: 'Staff', pin: '2222' },
+  /** New starter — probation from 22 Jul 2026 */
+  { id: 'marius2', fullName: 'Marius 2', role: 'Staff', pin: '7777' },
   { id: 'jovan', fullName: 'Jovan', role: 'Staff', pin: '3333' },
   /** No phone login — still assignable on jobs / project history. */
   { id: 'themba', fullName: 'Themba', role: 'Staff', pin: '4444', canLogin: false },

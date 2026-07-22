@@ -4,6 +4,7 @@ import type { Job, JobTask } from '../types'
 /** Stable id so reloads / re-deploys update the same card instead of duplicating. */
 export const PAJERO_JOB_ID = 'live-mp37nsgp-2026-07-20'
 export const DMAX_JOB_ID = 'live-dmax-acvtfs40jtd212313'
+export const HILUX_JOB_ID = 'live-hilux-lr90ccgp-2026-07-22'
 
 /** 20 Jul 2026 08:50 SAST */
 const PAJERO_START = '2026-07-20T06:50:00.000Z'
@@ -12,6 +13,9 @@ const PAJERO_DONE = '2026-07-20T10:30:00.000Z'
 
 /** D-Max book-in ~ morning strip underway */
 const DMAX_START = '2026-07-20T08:00:00.000Z'
+
+/** Hilux front bumper — 22 Jul 2026 morning SAST */
+const HILUX_START = '2026-07-22T06:30:00.000Z'
 
 function multiTask(
   id: string,
@@ -415,10 +419,59 @@ function dmaxJob(): Job {
   }
 }
 
+function hiluxJob(): Job {
+  const template = PACKAGE_TEMPLATES.find((p) => p.id === 'front-bumper')!
+  const tasks: JobTask[] = template.steps.map((step, index) => ({
+    id: `${HILUX_JOB_ID}-t${index + 1}`,
+    taskName: step.taskName,
+    requiresPhoto: step.requiresPhoto,
+    skippable: step.skippable,
+    phase: step.phase ?? 'Work',
+    stepOrder: step.stepOrder,
+    status: 'Pending' as const,
+    ...(step.photoMode ? { photoMode: step.photoMode } : {}),
+    ...(step.minPhotos ? { minPhotos: step.minPhotos } : {}),
+    ...(step.photoMode === 'walkaround' || step.photoMode === 'multi'
+      ? { photos: [] }
+      : {}),
+  }))
+
+  return {
+    id: HILUX_JOB_ID,
+    registration: 'LR90CCGP',
+    make: 'Toyota',
+    model: 'Hilux 2.4 GD-6',
+    year: '—',
+    packageId: template.id,
+    packageName: template.packageName,
+    status: 'Coming',
+    intakeDate: HILUX_START,
+    assignedWorkerIds: ['marius2'],
+    notes: [
+      {
+        id: `${HILUX_JOB_ID}-note-1`,
+        workerId: 'jaco',
+        text: 'Front bumper fitment. Assigned to Marius 2 (probation start 22 Jul 2026). Confirm year model if needed.',
+        createdAt: HILUX_START,
+      },
+    ],
+    auditLog: [
+      {
+        id: `${HILUX_JOB_ID}-audit-1`,
+        at: HILUX_START,
+        workerId: 'jaco',
+        action: 'note_added',
+        summary: 'Booked in · LR90CCGP Hilux 2.4 GD-6 · front bumper · Marius 2',
+      },
+    ],
+    tasks,
+  }
+}
+
 /**
  * Real workshop book-ins we push with the app when Firestore writes
  * are not available from the agent environment.
  */
 export function getLiveBookIns(): Job[] {
-  return [dmaxJob(), pajeroJob()]
+  return [hiluxJob(), dmaxJob(), pajeroJob()]
 }
