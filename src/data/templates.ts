@@ -137,7 +137,7 @@ export const PACKAGE_TEMPLATES: PackageTemplate[] = [
       // Chassis brackets on first — bolts snug only; final torque after bumper gap set
       { id: 'fb-brackets', stepOrder: 12, taskName: '12. Chassis bumper-mount brackets fitted — bolts snug only (not final torque); 3 photos', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 3 },
       // 4 bumper lights: outer L/R = DRL+park+indicator combo; centre 2 = fogs. Piggyback into OEM light backs (no extra plugs).
-      { id: 'fb-lights-mount', stepOrder: 13, taskName: '13. Mount 4 bumper lights — outer L/R combo (DRL/park/indicator) + 2 centre fogs; photo all 4 seated', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 4 },
+      { id: 'fb-lights-mount', stepOrder: 13, taskName: '13. Confirm 4 prebuilt bumper lights — outer L/R combo (DRL/park/indicator) + 2 centre fogs; photo all 4', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 4 },
       { id: 'fb-lights-wire-l', stepOrder: 14, taskName: '14. Wire outer LEFT combo into back of vehicle L lights (piggyback splice — DRL/park/indicator); photo join', requiresPhoto: true, skippable: false },
       { id: 'fb-lights-wire-r', stepOrder: 15, taskName: '15. Wire outer RIGHT combo into back of vehicle R lights (piggyback splice — DRL/park/indicator); photo join', requiresPhoto: true, skippable: false },
       { id: 'fb-lights-wire-fog', stepOrder: 16, taskName: '16. Wire centre fog lights into vehicle fog circuit (piggyback L+R); photo both joins', requiresPhoto: true, skippable: false, photoMode: 'multi', minPhotos: 2 },
