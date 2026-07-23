@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// MVP rules with NO expiry date — the Firebase console "test mode" rules
+// expire after 30 days and silently block photo uploads.
+// The app uses PIN login on the device (no Firebase Auth), so reads/writes
+// must stay open for now. Lock down once Firebase Auth is added.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

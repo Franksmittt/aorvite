@@ -9,6 +9,7 @@ import { isFirebaseConfigured } from './lib/firebase'
 import { ensureAppGeneration } from './lib/appGeneration'
 import { reconcileOrdersWithCloud } from './lib/inventoryStore'
 import { LOCAL_FIRST_MODE } from './lib/localMode'
+import { backfillLocalPhotosToCloud } from './lib/photoBackfill'
 import { hydratePhotoPreviewsFromIdb } from './lib/photoPreviewCache'
 import {
   loadJobs,
@@ -36,7 +37,7 @@ import {
 import './App.css'
 
 /**
- * Jobs/orders cloud pull. Disabled in LOCAL_FIRST_MODE while Firebase rules are locked.
+ * Jobs/orders cloud pull. Only disabled when VITE_LOCAL_FIRST_MODE=true is set.
  */
 const CLOUD_JOB_PULL_ENABLED = !LOCAL_FIRST_MODE
 const CLOUD_ORDER_PULL_ENABLED = !LOCAL_FIRST_MODE
@@ -78,6 +79,13 @@ function AppRoutes() {
       const count = await hydratePhotoPreviewsFromIdb()
       if (count > 0) console.info('Restored on-device photos', count)
       setJobs(loadJobs())
+      // Push photos that only exist on this device up to Firebase Storage
+      // so every login can see them (no-op in local mode / without config).
+      const uploaded = await backfillLocalPhotosToCloud()
+      if (uploaded > 0) {
+        console.info('Backfilled on-device photos to cloud', uploaded)
+        setJobs(loadJobs())
+      }
     })()
   }, [])
 
