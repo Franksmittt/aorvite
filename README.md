@@ -64,30 +64,32 @@ VITE_FIREBASE_APP_ID=
 
 6. Redeploy Vercel. Hub should show **Firebase connected**.
 
-### Test rules (MVP only — lock down later)
+### Security rules (IMPORTANT — console "test mode" rules expire!)
 
-Firestore:
+The console's default test-mode rules **expire after 30 days** and then silently
+block every photo upload and job sync (the app falls back to on-device storage,
+which fills the phone up). This repo now ships non-expiring MVP rules in
+`firestore.rules` and `storage.rules`. Deploy them with:
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
+```bash
+npm i -g firebase-tools
+firebase login
+firebase deploy --only firestore:rules,storage
 ```
 
-Storage:
+Or paste the contents of those two files into Firebase Console → Firestore →
+Rules and Storage → Rules.
 
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if true;
-    }
-  }
-}
-```
+The rules are open (no Firebase Auth yet — app login is PIN-based on the
+device). Lock them down once Firebase Auth is added.
+
+### Photos stuck on a phone?
+
+When the app starts with Firebase connected, it automatically uploads any
+photos that were saved on-device while sync was down, so every login can see
+them. Just open the app on that phone (with network) after fixing the rules.
+
+### Pause sync (optional)
+
+Set `VITE_LOCAL_FIRST_MODE=true` in Vercel env vars to force local-only mode
+(photos/jobs stay on the device). Remove it and redeploy to resume cloud sync.

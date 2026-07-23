@@ -117,7 +117,7 @@ export function Hub({ worker, jobs, cloudPullEnabled }: Props) {
         </p>
         {LOCAL_FIRST_MODE ? (
           <p className="muted" style={{ marginTop: '0.5rem' }}>
-            Finish the job on this phone. Photos are stored on-device. Turn Firebase sync back on later when rules are fixed.
+            Photos are stored on this phone only. Remove VITE_LOCAL_FIRST_MODE from the Vercel env vars and redeploy to resume Firebase sync.
           </p>
         ) : null}
       </section>

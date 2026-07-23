@@ -1292,7 +1292,7 @@ export function submitMultiPhotos(opts: {
 }
 
 export function firebaseEnabled(): boolean {
-  // While Firebase rules are locked, force on-device photo/job workflow.
+  // VITE_LOCAL_FIRST_MODE=true forces the on-device photo/job workflow.
   if (LOCAL_FIRST_MODE) return false
   return isFirebaseConfigured()
 }
